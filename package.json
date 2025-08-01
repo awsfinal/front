@@ -3,10 +3,14 @@
   "version": "1.0.0",
   "private": true,
   "dependencies": {
-    "react": "^18.2.0",
+    "@aws-amplify/ui-react": "^6.11.2",
+    "aws-amplify": "^6.15.4",
+    "axios": "^1.6.0",
+    "react": "^18.3.1",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.8.0",
-    "react-scripts": "5.0.1"
+    "react-scripts": "^5.0.1",
+    "scripts": "^0.1.0"
   },
   "scripts": {
     "start": "react-scripts start",
@@ -31,5 +35,10 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "devDependencies": {
+    "@types/node": "^24.1.0",
+    "@types/react": "^19.1.9",
+    "@types/react-dom": "^19.1.7"
   }
 }
