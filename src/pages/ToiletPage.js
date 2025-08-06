@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
 
 function ToiletPage() {
   const navigate = useNavigate();
@@ -8,6 +7,7 @@ function ToiletPage() {
   const [map, setMap] = useState(null);
   const [toilets, setToilets] = useState([]);
   const [userLocation, setUserLocation] = useState(null);
+  const [currentAddress, setCurrentAddress] = useState('위치 확인 중...');
   const [filters, setFilters] = useState({
     disabled: false,
     allDay: false
@@ -52,7 +52,7 @@ function ToiletPage() {
             } catch (err) {
               console.error('위치 처리 중 오류:', err);
               if (!hasGotLocation) {
-                setDefaultLocation();
+                setLocationError('위치 처리 중 오류가 발생했습니다.');
                 hasGotLocation = true;
               }
             }
@@ -79,8 +79,8 @@ function ToiletPage() {
             }
 
             console.log('사용자 알림:', errorMessage);
-            alert(errorMessage + ' 기본 위치(구로구청)를 사용합니다.');
-            setDefaultLocation();
+            alert(errorMessage + ' 위치 권한을 허용하고 다시 시도해주세요.');
+            setLocationError(errorMessage);
           },
           {
             enableHighAccuracy: true, // GPS 사용
@@ -93,8 +93,8 @@ function ToiletPage() {
         setTimeout(() => {
           if (watchId && !hasGotLocation) {
             navigator.geolocation.clearWatch(watchId);
-            console.log('위치 추적 타임아웃으로 중지, 기본 위치 사용');
-            setDefaultLocation();
+            console.log('위치 추적 타임아웃으로 중지');
+            setLocationError('위치 확인 시간이 초과되었습니다. 위치 권한을 확인하고 다시 시도해주세요.');
           } else if (watchId) {
             navigator.geolocation.clearWatch(watchId);
             console.log('위치 추적 정상 완료');
@@ -103,20 +103,15 @@ function ToiletPage() {
 
       } else {
         console.error('브라우저가 위치 정보를 지원하지 않습니다.');
-        alert('브라우저가 위치 정보를 지원하지 않아 기본 위치를 사용합니다.');
-        setDefaultLocation();
+        alert('브라우저가 위치 정보를 지원하지 않습니다. 최신 브라우저를 사용해주세요.');
+        setLocationError('브라우저가 위치 정보를 지원하지 않습니다.');
       }
     };
 
-    const setDefaultLocation = () => {
-      const defaultLocation = {
-        lat: 37.4954,
-        lng: 126.8874,
-        accuracy: 0
-      };
-      console.log('기본 위치 사용:', defaultLocation);
-      setUserLocation(defaultLocation);
-      initializeMap(defaultLocation);
+    const setLocationError = (errorMessage) => {
+      console.error('위치 오류:', errorMessage);
+      setCurrentAddress('위치를 확인할 수 없습니다');
+      // 위치 오류 시 지도나 화장실 데이터를 로드하지 않음
     };
 
     getUserLocation();
@@ -145,6 +140,8 @@ function ToiletPage() {
             address: result[0].address ? result[0].address.address_name : '주소 정보 없음'
           };
 
+          // 현재 주소를 state에 저장
+          setCurrentAddress(improvedLocation.address);
           console.log('개선된 위치 정보:', improvedLocation);
           callback(improvedLocation);
         } else {
@@ -168,14 +165,14 @@ function ToiletPage() {
             resolve();
             return;
           }
-          
+
           let attempts = 0;
           const maxAttempts = 50; // 5초 대기
-          
+
           const checkInterval = setInterval(() => {
             attempts++;
             console.log(`카카오지도 API 로드 확인 중... (${attempts}/${maxAttempts})`);
-            
+
             if (window.kakao && window.kakao.maps) {
               clearInterval(checkInterval);
               resolve();
@@ -222,12 +219,27 @@ function ToiletPage() {
           console.log('카카오지도 생성 중...');
           const kakaoMap = new window.kakao.maps.Map(container, options);
           console.log('카카오지도 생성 완료');
-          
+
           setMap(kakaoMap);
 
-          // 사용자 위치 마커 표시 (기본 마커 사용)
+          // 사용자 위치 마커 표시 (커스텀 마커 사용)
+          const userMarkerImage = new window.kakao.maps.MarkerImage(
+            'data:image/svg+xml;base64,' + btoa(`
+              <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 30 30">
+                <circle cx="15" cy="15" r="12" fill="#007AFF" stroke="white" stroke-width="3"/>
+                <circle cx="15" cy="15" r="6" fill="white"/>
+                <circle cx="15" cy="15" r="3" fill="#007AFF"/>
+              </svg>
+            `),
+            new window.kakao.maps.Size(30, 30),
+            {
+              offset: new window.kakao.maps.Point(15, 15)
+            }
+          );
+
           const userMarker = new window.kakao.maps.Marker({
             position: new window.kakao.maps.LatLng(improvedLocation.lat, improvedLocation.lng),
+            image: userMarkerImage,
             map: kakaoMap
           });
 
@@ -403,9 +415,28 @@ function ToiletPage() {
 
       const markerPosition = new window.kakao.maps.LatLng(toilet.lat, toilet.lng);
 
-      // 화장실 마커 생성 (기본 마커 사용)
+      // 화장실 마커 생성 (커스텀 화장실 마커 사용)
+      const svgString = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+          <rect x="4" y="4" width="24" height="24" rx="4" fill="#FF4444" stroke="white" stroke-width="2"/>
+          <text x="16" y="20" text-anchor="middle" fill="white" font-size="12" font-weight="bold">WC</text>
+        </svg>
+      `;
+
+      // UTF-8을 Base64로 안전하게 인코딩
+      const base64String = btoa(encodeURIComponent(svgString).replace(/%([0-9A-F]{2})/g, (match, p1) => String.fromCharCode(parseInt(p1, 16))));
+
+      const toiletMarkerImage = new window.kakao.maps.MarkerImage(
+        'data:image/svg+xml;base64,' + base64String,
+        new window.kakao.maps.Size(32, 32),
+        {
+          offset: new window.kakao.maps.Point(16, 32)
+        }
+      );
+
       const marker = new window.kakao.maps.Marker({
         position: markerPosition,
+        image: toiletMarkerImage,
         map: mapInstance
       });
 
@@ -465,46 +496,70 @@ function ToiletPage() {
         backgroundColor: 'white',
         padding: '15px 20px',
         borderBottom: '1px solid #e0e0e0',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
         flexShrink: 0
       }}>
-        <button
-          onClick={() => navigate('/main')}
-          style={{
-            background: 'none',
-            border: 'none',
-            fontSize: '18px',
-            cursor: 'pointer',
-            color: '#333'
-          }}
-        >
-          ←
-        </button>
-        <span style={{ fontSize: '18px', fontWeight: 'bold' }}>공용화장실</span>
-        <div style={{ fontSize: '12px', color: '#007AFF', textAlign: 'right' }}>
-          {userLocation && userLocation.accuracy && (
-            <div>
-              정확도: {Math.round(userLocation.accuracy)}m
-              <br />
-              <button
-                onClick={() => window.location.reload()}
-                style={{
-                  fontSize: '10px',
-                  padding: '2px 6px',
-                  border: '1px solid #007AFF',
-                  borderRadius: '4px',
-                  backgroundColor: 'white',
-                  color: '#007AFF',
-                  cursor: 'pointer',
-                  marginTop: '2px'
-                }}
-              >
-                위치 새로고침
-              </button>
-            </div>
-          )}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: '8px'
+        }}>
+          <button
+            onClick={() => navigate('/main')}
+            style={{
+              background: 'none',
+              border: 'none',
+              fontSize: '18px',
+              cursor: 'pointer',
+              color: '#333'
+            }}
+          >
+            ←
+          </button>
+          <span style={{ fontSize: '18px', fontWeight: 'bold' }}>공용화장실</span>
+          <div style={{ fontSize: '12px', color: '#007AFF', textAlign: 'right' }}>
+            {userLocation && userLocation.accuracy && (
+              <div>
+                정확도: {Math.round(userLocation.accuracy)}m
+                <br />
+                <button
+                  onClick={() => window.location.reload()}
+                  style={{
+                    fontSize: '10px',
+                    padding: '2px 6px',
+                    border: '1px solid #007AFF',
+                    borderRadius: '4px',
+                    backgroundColor: 'white',
+                    color: '#007AFF',
+                    cursor: 'pointer',
+                    marginTop: '2px'
+                  }}
+                >
+                  위치 새로고침
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* 현재 위치 주소 표시 */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '8px 12px',
+          backgroundColor: '#f8f9fa',
+          borderRadius: '8px',
+          border: '1px solid #e9ecef'
+        }}>
+          <span style={{
+            fontSize: '14px',
+            color: '#495057',
+            textAlign: 'center',
+            lineHeight: '1.4'
+          }}>
+            📍 {currentAddress}
+          </span>
         </div>
       </div>
 
@@ -602,12 +657,19 @@ function ToiletPage() {
         </div>
 
         {/* Toilet List */}
-        <div style={{ flex: 1, overflow: 'hidden' }}>
-          <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '15px', margin: '0 0 15px 0' }}>
+        <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '15px', margin: '0 0 15px 0', flexShrink: 0 }}>
             가까운 화장실
           </h3>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', overflowY: 'auto' }}>
+          <div style={{ 
+            flex: 1,
+            display: 'flex', 
+            flexDirection: 'column', 
+            gap: '10px', 
+            overflowY: 'auto',
+            paddingRight: '5px' // 스크롤바 공간
+          }}>
             {filteredToilets.length > 0 ? (
               filteredToilets.map(toilet => (
                 <div key={toilet.id} style={{
