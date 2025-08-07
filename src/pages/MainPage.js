@@ -13,6 +13,9 @@ function MainPage() {
     { code: 'zh', name: '中文', flag: '/image/china.png' }
   ];
 
+  // 현재 선택된 언어 객체 찾기
+  const currentLanguage = languages.find(lang => lang.name === selectedLanguage) || languages[0];
+
   const handleLanguageSelect = (language) => {
     setSelectedLanguage(language.name);
     setIsLanguageDropdownOpen(false);
@@ -106,17 +109,45 @@ function MainPage() {
               fontSize: '14px', 
               color: '#007AFF',
               cursor: 'pointer',
-              padding: '5px 10px',
-              borderRadius: '15px',
+              padding: '8px 12px',
+              borderRadius: '20px',
               border: '1px solid #007AFF',
               display: 'flex',
               alignItems: 'center',
-              gap: '5px',
-              backgroundColor: isLanguageDropdownOpen ? '#f0f8ff' : 'white'
+              gap: '8px',
+              backgroundColor: isLanguageDropdownOpen ? '#f0f8ff' : 'white',
+              minWidth: '60px',
+              justifyContent: 'center'
             }}
             onClick={() => setIsLanguageDropdownOpen(!isLanguageDropdownOpen)}
           >
-            🌐 {selectedLanguage}
+            <img 
+              src={currentLanguage.flag} 
+              alt={currentLanguage.name}
+              style={{ 
+                width: '24px', 
+                height: '18px', 
+                objectFit: 'cover',
+                borderRadius: '3px',
+                border: '1px solid #ddd'
+              }}
+              onError={(e) => {
+                // 이미지 로드 실패시 이모지로 대체
+                const emojiMap = {
+                  'ko': '🇰🇷',
+                  'en': '🇺🇸', 
+                  'ja': '🇯🇵',
+                  'zh': '🇨🇳'
+                };
+                e.target.style.display = 'none';
+                e.target.nextSibling.style.display = 'inline';
+                e.target.nextSibling.textContent = emojiMap[currentLanguage.code] || '🌐';
+              }}
+            />
+            <span style={{ 
+              fontSize: '18px', 
+              display: 'none' 
+            }}></span>
             <span style={{ 
               fontSize: '10px', 
               transform: isLanguageDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)',
