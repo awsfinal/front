@@ -1,8 +1,29 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 function MainPage() {
   const navigate = useNavigate();
+  const [isLanguageDropdownOpen, setIsLanguageDropdownOpen] = useState(false);
+  const [selectedLanguage, setSelectedLanguage] = useState('한국어');
+
+  const languages = [
+    { code: 'ko', name: '한국어', flag: '🇰🇷' },
+    { code: 'en', name: 'English', flag: '🇺🇸' },
+    { code: 'ja', name: '日本語', flag: '🇯🇵' },
+    { code: 'zh', name: '中文', flag: '🇨🇳' }
+  ];
+
+  const handleLanguageSelect = (language) => {
+    setSelectedLanguage(language.name);
+    setIsLanguageDropdownOpen(false);
+  };
+
+  const handleOutsideClick = (e) => {
+    // 언어 드롭다운 외부 클릭시 닫기
+    if (isLanguageDropdownOpen && !e.target.closest('.language-dropdown')) {
+      setIsLanguageDropdownOpen(false);
+    }
+  };
 
   const heritageData = [
     {
@@ -29,13 +50,16 @@ function MainPage() {
   ];
 
   return (
-    <div style={{ 
-      height: '100vh', 
-      backgroundColor: 'white', 
-      display: 'flex', 
-      flexDirection: 'column',
-      overflow: 'hidden'
-    }}>
+    <div 
+      style={{ 
+        height: '100vh', 
+        backgroundColor: 'white', 
+        display: 'flex', 
+        flexDirection: 'column',
+        overflow: 'hidden'
+      }}
+      onClick={handleOutsideClick}
+    >
       {/* Header */}
       <div style={{
         backgroundColor: 'white',
@@ -76,15 +100,92 @@ function MainPage() {
             찍지오
           </div>
         </div>
-        <div style={{ 
-          fontSize: '14px', 
-          color: '#007AFF',
-          cursor: 'pointer',
-          padding: '5px 10px',
-          borderRadius: '15px',
-          border: '1px solid #007AFF'
-        }}>
-          🌐 한국어
+        <div style={{ position: 'relative' }} className="language-dropdown">
+          <div 
+            style={{ 
+              fontSize: '14px', 
+              color: '#007AFF',
+              cursor: 'pointer',
+              padding: '5px 10px',
+              borderRadius: '15px',
+              border: '1px solid #007AFF',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+              backgroundColor: isLanguageDropdownOpen ? '#f0f8ff' : 'white'
+            }}
+            onClick={() => setIsLanguageDropdownOpen(!isLanguageDropdownOpen)}
+          >
+            🌐 {selectedLanguage}
+            <span style={{ 
+              fontSize: '10px', 
+              transform: isLanguageDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+              transition: 'transform 0.2s ease'
+            }}>
+              ▼
+            </span>
+          </div>
+          
+          {isLanguageDropdownOpen && (
+            <div style={{
+              position: 'absolute',
+              top: '100%',
+              right: '0',
+              marginTop: '5px',
+              backgroundColor: 'white',
+              border: '1px solid #e0e0e0',
+              borderRadius: '10px',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+              zIndex: 1000,
+              minWidth: '140px',
+              overflow: 'hidden'
+            }}>
+              {languages.map((language, index) => (
+                <div
+                  key={language.code}
+                  style={{
+                    padding: '12px 15px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    fontSize: '14px',
+                    backgroundColor: selectedLanguage === language.name ? '#f0f8ff' : 'white',
+                    borderBottom: index < languages.length - 1 ? '1px solid #f0f0f0' : 'none',
+                    transition: 'background-color 0.2s ease'
+                  }}
+                  onClick={() => handleLanguageSelect(language)}
+                  onMouseEnter={(e) => {
+                    if (selectedLanguage !== language.name) {
+                      e.target.style.backgroundColor = '#f8f9fa';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (selectedLanguage !== language.name) {
+                      e.target.style.backgroundColor = 'white';
+                    }
+                  }}
+                >
+                  <span style={{ fontSize: '16px' }}>{language.flag}</span>
+                  <span style={{ 
+                    color: selectedLanguage === language.name ? '#007AFF' : '#333',
+                    fontWeight: selectedLanguage === language.name ? '600' : 'normal'
+                  }}>
+                    {language.name}
+                  </span>
+                  {selectedLanguage === language.name && (
+                    <span style={{ 
+                      marginLeft: 'auto', 
+                      color: '#007AFF', 
+                      fontSize: '12px' 
+                    }}>
+                      ✓
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
