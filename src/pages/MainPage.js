@@ -7,10 +7,10 @@ function MainPage() {
   const [selectedLanguage, setSelectedLanguage] = useState('한국어');
 
   const languages = [
-    { code: 'ko', name: '한국어', flag: '🇰🇷' },
-    { code: 'en', name: 'English', flag: '🇺🇸' },
-    { code: 'ja', name: '日本語', flag: '🇯🇵' },
-    { code: 'zh', name: '中文', flag: '🇨🇳' }
+    { code: 'ko', name: '한국어', flag: '/image/koera.png' },
+    { code: 'en', name: 'English', flag: '/image/usa.png' },
+    { code: 'ja', name: '日本語', flag: '/image/japan.png' },
+    { code: 'zh', name: '中文', flag: '/image/china.png' }
   ];
 
   const handleLanguageSelect = (language) => {
@@ -166,7 +166,32 @@ function MainPage() {
                     }
                   }}
                 >
-                  <span style={{ fontSize: '16px' }}>{language.flag}</span>
+                  <img 
+                    src={language.flag} 
+                    alt={language.name}
+                    style={{ 
+                      width: '20px', 
+                      height: '15px', 
+                      objectFit: 'cover',
+                      borderRadius: '2px'
+                    }}
+                    onError={(e) => {
+                      // 이미지 로드 실패시 기본 이모지로 대체
+                      const emojiMap = {
+                        'ko': '🇰🇷',
+                        'en': '🇺🇸', 
+                        'ja': '🇯🇵',
+                        'zh': '🇨🇳'
+                      };
+                      e.target.style.display = 'none';
+                      e.target.nextSibling.style.display = 'inline';
+                      e.target.nextSibling.textContent = emojiMap[language.code] || '🌐';
+                    }}
+                  />
+                  <span style={{ 
+                    fontSize: '16px', 
+                    display: 'none' 
+                  }}></span>
                   <span style={{ 
                     color: selectedLanguage === language.name ? '#007AFF' : '#333',
                     fontWeight: selectedLanguage === language.name ? '600' : 'normal'
