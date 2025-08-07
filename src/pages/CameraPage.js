@@ -27,7 +27,7 @@ function CameraPage() {
   const navigate = useNavigate();
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
-  
+
   // 상태 관리
   const [stream, setStream] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -238,9 +238,16 @@ function CameraPage() {
               ? `${(closestBuilding.distance / 1000).toFixed(1)}km`
               : `${closestBuilding.distance}m`;
 
-            // 지도에서 찾은 건물인지 표시
-            const buildingSource = closestBuilding.mapData ? '🗺️' : '📍';
-            setLocationStatus(`${buildingSource} ${closestBuilding.name} (${distanceKm}) - 촬영 가능`);
+            // 건물 인식 방법에 따른 아이콘 표시
+            let buildingSource = '📍';
+            if (closestBuilding.isInPolygon) {
+              buildingSource = '🎯'; // 폴리곤 영역 내부
+            } else if (closestBuilding.mapData) {
+              buildingSource = '🗺️'; // 지도 검색
+            }
+            
+            const distanceText = closestBuilding.isInPolygon ? '영역 내부' : distanceKm;
+            setLocationStatus(`${buildingSource} ${closestBuilding.name} (${distanceText}) - 촬영 가능`);
 
             // 현재 위치 정보 업데이트
             setCurrentLocation({

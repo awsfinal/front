@@ -1,9 +1,34 @@
 import { gyeongbokgungBuildings } from './buildingData';
 import { calculateDistance } from './gpsUtils';
+import { findBuildingByPolygon, mapPolygonToBuilding } from './buildingPolygons';
 
-// 카카오 지도 API를 사용한 실제 건물 검색
+// 폴리곤 우선 검색을 포함한 통합 건물 검색
 export const findBuildingFromMap = async (lat, lng) => {
   return new Promise((resolve) => {
+    // 1단계: 폴리곤 영역 우선 검색
+    console.log('🎯 1단계: 폴리곤 영역 검색 시작');
+    const polygonBuilding = findBuildingByPolygon(lat, lng);
+    
+    if (polygonBuilding) {
+      // 폴리곤에서 찾은 건물을 기존 건물 데이터와 매칭
+      const mappedBuildingId = mapPolygonToBuilding(polygonBuilding.id);
+      const buildingData = gyeongbokgungBuildings[mappedBuildingId];
+      
+      if (buildingData) {
+        console.log(`✅ 폴리곤 매칭 성공: ${polygonBuilding.name} -> ${buildingData.name}`);
+        resolve({
+          ...buildingData,
+          distance: 0, // 폴리곤 안에 있으므로 거리 0
+          isInPolygon: true,
+          polygonData: polygonBuilding.polygonData,
+          detectionMethod: 'polygon'
+        });
+        return;
+      }
+    }
+    
+    console.log('📍 2단계: 카카오 지도 API 검색 시작');
+    
     if (!window.kakao || !window.kakao.maps || !window.kakao.maps.services) {
       console.log('카카오 지도 API가 없어 기본 방식 사용');
       resolve(findClosestBuildingFallback(lat, lng));
@@ -73,7 +98,10 @@ export const findBuildingFromMap = async (lat, lng) => {
 
 // 장소명으로 기존 건물 데이터와 매칭
 export const findMatchingBuilding = (placeName) => {
+  console.log(`🔍 장소명 매칭 시도: "${placeName}"`);
+  
   const nameMapping = {
+    // 기존 건물들
     '경회루': 'gyeonghoeru',
     '근정전': 'geunjeongjeon',
     '사정전': 'sajeongjeon',
@@ -99,18 +127,52 @@ export const findMatchingBuilding = (placeName) => {
     '정전': 'jeongjeon',
     '민정문': 'minjeongmun',
     '인정당': 'injeongdang',
-    '선원전': 'seonwonjeon'
+    '선원전': 'seonwonjeon',
+    
+    // 폴리곤에서 추가된 건물들
+    '흠경각': 'heumgyeonggak',
+    '응지당': 'eungjidang',
+    '경성전': 'gyeongseungjeon',
+    '연길당': 'yeongildang',
+    '연생전': 'yeonsaengjeon',
+    '함원전': 'hamwonjeon',
+    '함홍각': 'hamhonggak',
+    '만춘전': 'manchunjeon',
+    '긍정전': 'geunjeongjeon', // 긍정전은 근정전으로 매핑
+    '생물방': 'saengmulbang',
+    '외소주방': 'oesojubang',
+    '자선당': 'jaseondang',
+    '비현각': 'bihyeongak',
+    '흥복전': 'heungbokjeon',
+    '계조당': 'gyejodang'
   };
 
-  // 장소명에서 건물명 추출
-  for (const [buildingName, buildingId] of Object.entries(nameMapping)) {
+  // 장소명에서 건물명 추출 (더 정확한 매칭을 위해 긴 이름부터 확인)
+  const sortedNames = Object.keys(nameMapping).sort((a, b) => b.length - a.length);
+  
+  for (const buildingName of sortedNames) {
     if (placeName.includes(buildingName)) {
-      return gyeongbokgungBuildings[buildingId];
+      const buildingId = nameMapping[buildingName];
+      const buildingData = gyeongbokgungBuildings[buildingId];
+      
+      if (buildingData) {
+        console.log(`✅ 매칭 성공: "${buildingName}" -> ${buildingData.name}`);
+        return buildingData;
+      } else {
+        console.log(`⚠️ 건물 데이터 없음: ${buildingId}`);
+        // 건물 데이터가 없으면 임시 데이터 생성
+        return {
+          id: buildingId,
+          name: buildingName,
+          coordinates: { lat: 37.5796, lng: 126.9770 }
+        };
+      }
     }
   }
 
   // 매칭되지 않으면 경복궁 일반 정보 반환
   if (placeName.includes('경복궁')) {
+    console.log(`ℹ️ 일반 경복궁으로 처리: "${placeName}"`);
     return {
       id: 'gyeongbokgung_general',
       name: '경복궁',
@@ -118,6 +180,7 @@ export const findMatchingBuilding = (placeName) => {
     };
   }
 
+  console.log(`❌ 매칭 실패: "${placeName}"`);
   return null;
 };
 

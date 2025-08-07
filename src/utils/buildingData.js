@@ -146,6 +146,73 @@ export const gyeongbokgungBuildings = {
     id: 'seonwonjeon',
     name: '선원전',
     coordinates: { lat: 37.5810, lng: 126.9782 }
+  },
+
+  // 폴리곤에서 추가된 새로운 건물들
+  eungjidang: {
+    id: 'eungjidang',
+    name: '응지당',
+    coordinates: { lat: 37.579573, lng: 126.977256 }
+  },
+  heumgyeonggak: {
+    id: 'heumgyeonggak',
+    name: '흠경각',
+    coordinates: { lat: 37.579701, lng: 126.976612 }
+  },
+  yeongildang: {
+    id: 'yeongildang',
+    name: '연길당',
+    coordinates: { lat: 37.579544, lng: 126.977406 }
+  },
+  yeonsaengjeon: {
+    id: 'yeonsaengjeon',
+    name: '연생전',
+    coordinates: { lat: 37.579418, lng: 126.977350 }
+  },
+  hamwonjeon: {
+    id: 'hamwonjeon',
+    name: '함원전',
+    coordinates: { lat: 37.579941, lng: 126.976637 }
+  },
+  hamhonggak: {
+    id: 'hamhonggak',
+    name: '함홍각',
+    coordinates: { lat: 37.579885, lng: 126.976860 }
+  },
+  manchunjeon: {
+    id: 'manchunjeon',
+    name: '만춘전',
+    coordinates: { lat: 37.579025, lng: 126.977389 }
+  },
+  saengmulbang: {
+    id: 'saengmulbang',
+    name: '생물방',
+    coordinates: { lat: 37.579696, lng: 126.978291 }
+  },
+  oesojubang: {
+    id: 'oesojubang',
+    name: '외소주방',
+    coordinates: { lat: 37.579457, lng: 126.978267 }
+  },
+  jaseondang: {
+    id: 'jaseondang',
+    name: '자선당',
+    coordinates: { lat: 37.579026, lng: 126.978474 }
+  },
+  bihyeongak: {
+    id: 'bihyeongak',
+    name: '비현각',
+    coordinates: { lat: 37.579009, lng: 126.978430 }
+  },
+  heungbokjeon: {
+    id: 'heungbokjeon',
+    name: '흥복전',
+    coordinates: { lat: 37.580743, lng: 126.976877 }
+  },
+  gyejodang: {
+    id: 'gyejodang',
+    name: '계조당',
+    coordinates: { lat: 37.577839, lng: 126.977826 }
   }
 };
 
