@@ -153,7 +153,7 @@ export const buildingPolygons = [
 export const isPointInPolygon = (lat, lng, polygon) => {
   // GPS 오차를 고려한 여유 범위 (약 5미터)
   const buffer = 0.00005; // 약 5미터 정도의 여유
-  
+
   // 북서(NW)와 남동(SE) 좌표를 이용한 사각형 영역 체크 (버퍼 적용)
   const northLat = polygon.nw[0] + buffer;  // 북쪽 위도 (확장)
   const westLng = polygon.nw[1] - buffer;   // 서쪽 경도 (확장)
@@ -166,24 +166,24 @@ export const isPointInPolygon = (lat, lng, polygon) => {
   console.log(`   원본 - 서: ${polygon.nw[1].toFixed(6)}, 동: ${polygon.se[1].toFixed(6)}`);
   console.log(`   확장 - 북: ${northLat.toFixed(6)}, 남: ${southLat.toFixed(6)}`);
   console.log(`   확장 - 서: ${westLng.toFixed(6)}, 동: ${eastLng.toFixed(6)}`);
-  
+
   const latInRange = lat <= northLat && lat >= southLat;
   const lngInRange = lng >= westLng && lng <= eastLng;
-  
+
   console.log(`   위도 범위: ${latInRange} (${lat} <= ${northLat} && ${lat} >= ${southLat})`);
   console.log(`   경도 범위: ${lngInRange} (${lng} >= ${westLng} && ${lng} <= ${eastLng})`);
 
   // 점이 사각형 영역 안에 있는지 확인
   const isInside = latInRange && lngInRange;
   console.log(`   결과: ${isInside ? '✅ 내부' : '❌ 외부'}`);
-  
+
   return isInside;
 };
 
 // GPS 위치로 해당하는 건물 폴리곤 찾기
 export const findBuildingByPolygon = (lat, lng) => {
   console.log(`폴리곤 검색: 위치 ${lat.toFixed(6)}, ${lng.toFixed(6)}`);
-  
+
   for (const polygon of buildingPolygons) {
     if (isPointInPolygon(lat, lng, polygon)) {
       console.log(`🎯 폴리곤 매칭 성공: ${polygon.name}`);
@@ -202,7 +202,7 @@ export const findBuildingByPolygon = (lat, lng) => {
       };
     }
   }
-  
+
   console.log('❌ 해당하는 폴리곤을 찾을 수 없습니다.');
   return null;
 };
@@ -232,6 +232,6 @@ export const mapPolygonToBuilding = (polygonId) => {
     'heungbokjeon': 'heungbokjeon',
     'gyejodang': 'gyejodang'
   };
-  
+
   return mapping[polygonId] || polygonId;
 };

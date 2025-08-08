@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import PhilosophyModal from '../components/PhilosophyModal';
 
 // 경복궁 건물 데이터 (CameraPage와 동일)
 const gyeongbokgungBuildings = {
@@ -74,6 +75,42 @@ const gyeongbokgungBuildings = {
     buildYear: '1395년 (태조 4년)',
     culturalProperty: '보물 제1761호',
     features: ['왕비의 침전', '꽃담', '여성 공간']
+  },
+  heumgyeonggak: {
+    id: 'heumgyeonggak',
+    name: '흠경각',
+    nameEn: 'Heumgyeonggak',
+    description: '경복궁의 건물 중 하나입니다.',
+    detailedDescription: '흠경각은 경복궁 내의 중요한 건물 중 하나로, 조선시대의 건축 양식을 잘 보여주는 문화재입니다. 왕실의 학문과 교육을 담당하던 공간으로 사용되었으며, 특히 천문학과 역법 연구의 중심지 역할을 했습니다. 건물의 이름인 "흠경"은 "하늘을 우러러 공경한다"는 뜻으로, 조선시대 왕실의 학문에 대한 존중과 천문학적 지식의 중요성을 보여줍니다. 현재는 경복궁 복원 과정에서 재건된 건물로, 조선시대 과학 기술의 발전상을 엿볼 수 있는 소중한 문화유산입니다.',
+    coordinates: { lat: 37.5797, lng: 126.9765 },
+    images: ['/image/default-building.jpg'],
+    buildYear: '조선시대',
+    culturalProperty: '문화재',
+    features: ['전통 건축', '경복궁 건물', '학문 공간', '천문학 연구', '왕실 교육']
+  },
+  manchunjeon: {
+    id: 'manchunjeon',
+    name: '만춘전',
+    nameEn: 'Manchunjeon Hall',
+    description: '조선시대 왕실의 생활 공간으로 사용된 건물입니다.',
+    detailedDescription: '만춘전은 조선시대 왕실의 일상 생활과 휴식을 위한 공간으로 사용되었습니다. 아름다운 정원과 함께 조화를 이루며, 왕실 가족들의 사적인 공간이었습니다. 현재는 경복궁의 중요한 문화재로 보존되고 있습니다.',
+    coordinates: { lat: 37.579057, lng: 126.977310 },
+    images: ['/image/manchunjeon1.jpg'],
+    buildYear: '1395년 (태조 4년)',
+    culturalProperty: '보물',
+    features: ['왕실 생활 공간', '휴식 공간', '정원과 조화']
+  },
+  gyejodang: {
+    id: 'gyejodang',
+    name: '계조당',
+    nameEn: 'Gyejodang Hall',
+    description: '조선시대 왕실의 중요한 건물 중 하나입니다.',
+    detailedDescription: '계조당은 경복궁 내의 중요한 건물로, 조선시대 왕실의 일상 생활과 정무를 위한 공간으로 사용되었습니다. 건물의 이름인 "계조"는 "조상을 계승한다"는 의미로, 왕실의 전통과 계승을 상징하는 건물입니다.',
+    coordinates: { lat: 37.5799, lng: 126.9773 },
+    images: ['/image/default-building.jpg'],
+    buildYear: '조선시대',
+    culturalProperty: '문화재',
+    features: ['왕실 건물', '전통 계승', '정무 공간']
   }
 };
 
@@ -86,6 +123,9 @@ function DetailPage() {
   const [error, setError] = useState(null);
   const [capturedPhoto, setCapturedPhoto] = useState(null);
   const [analysisResult, setAnalysisResult] = useState(null);
+  const [isPhilosophyModalOpen, setIsPhilosophyModalOpen] = useState(false);
+  const [aiDescription, setAiDescription] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
 
   useEffect(() => {
     // location.state에서 건물 정보가 전달된 경우 (카메라에서 온 경우)
@@ -94,6 +134,8 @@ function DetailPage() {
       setCapturedPhoto(location.state.photoUrl);
       setAnalysisResult(location.state.analysisResult);
       setLoading(false);
+      // AI 설명도 가져오기
+      fetchAiDescription(location.state.building);
     } else {
       // API에서 건물 정보 가져오기
       fetchBuildingInfo();
@@ -109,14 +151,78 @@ function DetailPage() {
 
       if (buildingData) {
         setBuilding(buildingData);
+        // AI 설명도 가져오기
+        fetchAiDescription(buildingData);
       } else {
-        setError('건물 정보를 찾을 수 없습니다.');
+        // 건물 정보가 없을 때 기본 건물 정보 생성 (테스트용)
+        const defaultBuilding = {
+          id: id || 'unknown',
+          name: '흠경각',
+          nameEn: 'Heumgyeonggak',
+          description: '경복궁의 건물 중 하나입니다.',
+          detailedDescription: '흠경각은 경복궁 내의 중요한 건물 중 하나로, 조선시대의 건축 양식을 잘 보여주는 문화재입니다.',
+          coordinates: { lat: 37.5797, lng: 126.9765 },
+          images: ['/image/default-building.jpg'],
+          buildYear: '조선시대',
+          culturalProperty: '문화재',
+          features: ['전통 건축', '경복궁 건물']
+        };
+        setBuilding(defaultBuilding);
+        fetchAiDescription(defaultBuilding);
       }
     } catch (error) {
       console.error('건물 정보 조회 오류:', error);
       setError('건물 정보를 불러오는데 실패했습니다.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // AI 설명 가져오기 함수
+  const fetchAiDescription = async (buildingData) => {
+    try {
+      setAiLoading(true);
+      console.log('🤖 AI 설명 요청:', buildingData.name);
+
+      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5003';
+      const response = await fetch(`${apiUrl}/api/philosophy/${buildingData.id}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          buildingName: buildingData.name,
+          locationInfo: {
+            address: '서울특별시 종로구 사직로 161 (경복궁)',
+            latitude: buildingData.coordinates.lat,
+            longitude: buildingData.coordinates.lng
+          },
+          userContext: {
+            deviceType: navigator.userAgent.includes('Mobile') ? 'Mobile' : 'Desktop',
+            timestamp: new Date().toISOString()
+          }
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.success && data.content && data.content.philosophy) {
+        // AI가 생성한 철학 섹션을 메인 설명으로 사용
+        setAiDescription(data.content.philosophy);
+        console.log('✅ AI 설명 로드 완료');
+      } else {
+        throw new Error(data.error || 'AI 설명 생성 실패');
+      }
+    } catch (error) {
+      console.error('❌ AI 설명 로드 오류:', error);
+      // 오류 시 기본 설명 사용
+      setAiDescription(buildingData.detailedDescription || `${buildingData.name}에 대한 상세한 설명을 불러오는 중 오류가 발생했습니다.`);
+    } finally {
+      setAiLoading(false);
     }
   };
 
@@ -411,14 +517,13 @@ function DetailPage() {
           </p>
         </div>
 
-        {/* Description Section */}
+        {/* AI Description Section */}
         <div style={{
           backgroundColor: 'white',
           padding: '15px',
           borderRadius: '12px',
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column'
+          marginBottom: '20px',
+          flexShrink: 0
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
             <img
@@ -432,51 +537,146 @@ function DetailPage() {
             />
             <span style={{ display: 'none', fontSize: '20px' }}>📖</span>
             <span style={{ fontSize: '16px', fontWeight: 'bold', color: '#333' }}>AI 문화재 설명</span>
-          </div>
-          <div style={{
-            flex: 1,
-            overflow: 'auto',
-            paddingRight: '5px'
-          }}>
-            <p style={{
-              margin: 0,
-              fontSize: '14px',
-              color: '#333',
-              lineHeight: '1.6',
-              textAlign: 'justify'
+            <div style={{
+              backgroundColor: '#e8f5e8',
+              color: '#2d5a2d',
+              padding: '2px 6px',
+              borderRadius: '8px',
+              fontSize: '10px',
+              fontWeight: 'bold'
             }}>
-              {building.detailedDescription}
-            </p>
+              🤖 AI 생성
+            </div>
+          </div>
 
-            {/* 건물 특징 표시 */}
-            {building.features && building.features.length > 0 && (
-              <div style={{ marginTop: '15px' }}>
-                <div style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '8px', color: '#333' }}>
-                  주요 특징
-                </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                  {building.features.map((feature, index) => (
-                    <span
-                      key={index}
-                      style={{
-                        backgroundColor: '#f0f8ff',
-                        color: '#007AFF',
-                        padding: '4px 8px',
-                        borderRadius: '12px',
-                        fontSize: '12px',
-                        border: '1px solid #e0e8f0'
-                      }}
-                    >
-                      {feature}
-                    </span>
-                  ))}
-                </div>
+          {/* AI 생성 설명 */}
+          <div style={{
+            padding: '12px',
+            backgroundColor: '#f8f9ff',
+            borderRadius: '8px',
+            marginBottom: '15px',
+            border: '1px solid #e0e8f0',
+            minHeight: '100px'
+          }}>
+            {aiLoading ? (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                minHeight: '80px',
+                flexDirection: 'column',
+                gap: '10px'
+              }}>
+                <div style={{
+                  width: '30px',
+                  height: '30px',
+                  border: '3px solid #f3f3f3',
+                  borderTop: '3px solid #007AFF',
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite'
+                }}></div>
+                <span style={{ fontSize: '12px', color: '#666' }}>
+                  🤖 AI가 문화재 설명을 생성하고 있습니다...
+                </span>
+              </div>
+            ) : (
+              <div>
+                {aiDescription ? (
+                  <div>
+                    {aiDescription.split('\n').map((paragraph, index) => (
+                      <p key={index} style={{
+                        margin: index === 0 ? 0 : '12px 0 0 0',
+                        fontSize: '14px',
+                        color: '#333',
+                        lineHeight: '1.6',
+                        textAlign: 'justify'
+                      }}>
+                        {paragraph}
+                      </p>
+                    ))}
+                  </div>
+                ) : (
+                  <p style={{
+                    margin: 0,
+                    fontSize: '14px',
+                    color: '#333',
+                    lineHeight: '1.6',
+                    textAlign: 'justify'
+                  }}>
+                    {building.detailedDescription}
+                  </p>
+                )}
               </div>
             )}
           </div>
+
+          {/* 건물 특징 표시 */}
+          {building.features && building.features.length > 0 && (
+            <div style={{ marginBottom: '15px' }}>
+              <div style={{
+                fontSize: '14px',
+                fontWeight: 'bold',
+                marginBottom: '8px',
+                color: '#333',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}>
+                <span>🏛️</span>
+                <span>주요 특징</span>
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                {building.features.map((feature, index) => (
+                  <span
+                    key={index}
+                    style={{
+                      backgroundColor: '#f0f8ff',
+                      color: '#007AFF',
+                      padding: '4px 8px',
+                      borderRadius: '12px',
+                      fontSize: '12px',
+                      border: '1px solid #e0e8f0'
+                    }}
+                  >
+                    {feature}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* AI 철학 미리보기 */}
+          <div style={{
+            padding: '12px',
+            backgroundColor: '#fff8e1',
+            borderRadius: '8px',
+            border: '1px solid #ffe0b2'
+          }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              marginBottom: '8px'
+            }}>
+              <span style={{ fontSize: '16px' }}>🔮</span>
+              <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#e65100' }}>
+                AI 철학적 해석 미리보기
+              </span>
+            </div>
+            <p style={{
+              margin: 0,
+              fontSize: '13px',
+              color: '#bf360c',
+              lineHeight: '1.5',
+              fontStyle: 'italic'
+            }}>
+              "{building.name}은 조선시대의 건축 철학과 왕실의 권위를 담고 있는 소중한 문화유산입니다.
+              더 깊이 있는 철학적 해석과 역사적 맥락을 보려면 아래 '철학 보기' 버튼을 눌러보세요."
+            </p>
+          </div>
         </div>
 
-        {/* Action Buttons */}
+        {/* Action Buttons - 항상 표시 */}
         <div style={{
           display: 'flex',
           gap: '10px',
@@ -498,6 +698,25 @@ function DetailPage() {
             }}
           >
             📷 사진 촬영하기
+          </button>
+          <button
+            onClick={() => {
+              console.log('철학 버튼 클릭됨!', building);
+              setIsPhilosophyModalOpen(true);
+            }}
+            style={{
+              flex: 1,
+              padding: '12px',
+              backgroundColor: '#8B5CF6',
+              color: 'white',
+              border: 'none',
+              borderRadius: '10px',
+              fontSize: '14px',
+              fontWeight: '500',
+              cursor: 'pointer'
+            }}
+          >
+            🏛️ 철학 보기
           </button>
           <button
             onClick={() => {
@@ -563,6 +782,14 @@ function DetailPage() {
           <span>설정</span>
         </div>
       </div>
+
+      {/* Philosophy Modal */}
+      <PhilosophyModal
+        isOpen={isPhilosophyModalOpen}
+        onClose={() => setIsPhilosophyModalOpen(false)}
+        buildingId={building?.id}
+        buildingName={building?.name}
+      />
     </div>
   );
 }
