@@ -27,7 +27,7 @@ function CameraPage() {
   const navigate = useNavigate();
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
-  
+
   // 상태 관리
   const [stream, setStream] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -238,9 +238,16 @@ function CameraPage() {
               ? `${(closestBuilding.distance / 1000).toFixed(1)}km`
               : `${closestBuilding.distance}m`;
 
-            // 지도에서 찾은 건물인지 표시
-            const buildingSource = closestBuilding.mapData ? '🗺️' : '📍';
-            setLocationStatus(`${buildingSource} ${closestBuilding.name} (${distanceKm}) - 촬영 가능`);
+            // 건물 인식 방법에 따른 아이콘 표시
+            let buildingSource = '📍';
+            if (closestBuilding.isInPolygon) {
+              buildingSource = '🎯'; // 폴리곤 영역 내부
+            } else if (closestBuilding.mapData) {
+              buildingSource = '🗺️'; // 지도 검색
+            }
+            
+            const distanceText = closestBuilding.isInPolygon ? '영역 내부' : distanceKm;
+            setLocationStatus(`${buildingSource} ${closestBuilding.name} (${distanceText}) - 촬영 가능`);
 
             // 현재 위치 정보 업데이트
             setCurrentLocation({
@@ -339,51 +346,106 @@ function CameraPage() {
           return;
         }
 
-        // 프론트엔드에서 직접 처리 (백엔드 API 호출 없이)
-        const closestBuilding = currentLocation.closestBuilding || findClosestBuildingFallback(currentLocation.latitude, currentLocation.longitude);
+        // 백엔드 API로 사진 분석 요청
+        const formData = new FormData();
+        formData.append('photo', blob, 'captured-photo.jpg');
+        formData.append('latitude', currentLocation.latitude.toString());
+        formData.append('longitude', currentLocation.longitude.toString());
+        formData.append('heading', currentHeading?.toString() || '');
+        formData.append('deviceType', isIOS ? 'iOS' : isAndroid ? 'Android' : 'Other');
 
-        if (closestBuilding) {
-          // 건물 식별 성공
-          const building = {
-            id: closestBuilding.id,
-            name: closestBuilding.name,
-            description: `${closestBuilding.name}은(는) 경복궁의 대표적인 건물 중 하나입니다.`,
-            nameEn: getEnglishName(closestBuilding.id),
-            buildYear: getBuildYear(closestBuilding.id),
-            culturalProperty: getCulturalProperty(closestBuilding.id),
-            features: getFeatures(closestBuilding.id),
-            detailedDescription: getDetailedDescription(closestBuilding.id)
-          };
-
-          // 분석 결과 생성
-          const analysisResult = {
-            confidence: 0.95,
-            detectedFeatures: building.features,
-            location: {
-              latitude: currentLocation.latitude,
-              longitude: currentLocation.longitude,
-              accuracy: 'high',
-              address: currentLocation.address || `현재 위치 (${building.name} 인근)`,
-              capturedAt: new Date().toISOString(),
-              distanceToBuilding: closestBuilding.distance,
-              isInGyeongbokgung: isInGyeongbokgung(currentLocation.latitude, currentLocation.longitude),
-              heading: currentHeading,
-              deviceType: isIOS ? 'iOS' : isAndroid ? 'Android' : 'Other'
-            }
-          };
-
-          // 상세 페이지로 이동
-          alert(`🏛️ ${building.name}을(를) 식별했습니다!\n\n${building.description}`);
-          navigate(`/detail/${building.id}`, {
-            state: {
-              building: building,
-              photoUrl: null, // 프론트엔드에서는 사진 저장 안함
-              analysisResult: analysisResult
-            }
+        try {
+          const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5002';
+          const response = await fetch(`${apiUrl}/api/analyze-photo`, {
+            method: 'POST',
+            body: formData
           });
-        } else {
-          // 건물 식별 실패
-          alert('📷 사진을 촬영했지만 건물을 식별할 수 없습니다.');
+
+          const result = await response.json();
+
+          if (result.success && result.building) {
+            // 건물 식별 성공
+            const building = result.building;
+            
+            // AI 설명 생성을 위한 추가 정보
+            const enhancedBuilding = {
+              ...building,
+              description: `${building.name}은(는) 경복궁의 대표적인 건물 중 하나입니다.`,
+              nameEn: getEnglishName(building.id) || building.nameEn,
+              buildYear: getBuildYear(building.id) || building.buildYear,
+              culturalProperty: getCulturalProperty(building.id) || building.culturalProperty,
+              features: getFeatures(building.id) || building.features,
+              detailedDescription: getDetailedDescription(building.id) || building.detailedDescription
+            };
+
+            // 분석 결과에 추가 정보 포함
+            const enhancedAnalysisResult = {
+              ...result.analysisResult,
+              location: {
+                ...result.analysisResult.location,
+                heading: currentHeading,
+                deviceType: isIOS ? 'iOS' : isAndroid ? 'Android' : 'Other'
+              }
+            };
+
+            // 상세 페이지로 이동
+            alert(`🏛️ ${building.name}을(를) 식별했습니다!\n\n${enhancedBuilding.description}`);
+            navigate(`/detail/${building.id}`, {
+              state: {
+                building: enhancedBuilding,
+                photoUrl: result.photoUrl,
+                analysisResult: enhancedAnalysisResult
+              }
+            });
+          } else {
+            // 건물 식별 실패
+            alert(`📷 사진을 촬영했지만 건물을 식별할 수 없습니다.\n\n${result.message || '다시 시도해주세요.'}`);
+          }
+        } catch (apiError) {
+          console.error('API 호출 오류:', apiError);
+          
+          // API 실패 시 프론트엔드 폴백 처리
+          const closestBuilding = currentLocation.closestBuilding || findClosestBuildingFallback(currentLocation.latitude, currentLocation.longitude);
+
+          if (closestBuilding) {
+            const building = {
+              id: closestBuilding.id,
+              name: closestBuilding.name,
+              description: `${closestBuilding.name}은(는) 경복궁의 대표적인 건물 중 하나입니다.`,
+              nameEn: getEnglishName(closestBuilding.id),
+              buildYear: getBuildYear(closestBuilding.id),
+              culturalProperty: getCulturalProperty(closestBuilding.id),
+              features: getFeatures(closestBuilding.id),
+              detailedDescription: getDetailedDescription(closestBuilding.id)
+            };
+
+            const analysisResult = {
+              confidence: 0.85,
+              detectedFeatures: building.features,
+              location: {
+                latitude: currentLocation.latitude,
+                longitude: currentLocation.longitude,
+                accuracy: 'medium',
+                address: currentLocation.address || `현재 위치 (${building.name} 인근)`,
+                capturedAt: new Date().toISOString(),
+                distanceToBuilding: closestBuilding.distance,
+                isInGyeongbokgung: isInGyeongbokgung(currentLocation.latitude, currentLocation.longitude),
+                heading: currentHeading,
+                deviceType: isIOS ? 'iOS' : isAndroid ? 'Android' : 'Other'
+              }
+            };
+
+            alert(`🏛️ ${building.name}을(를) 식별했습니다! (오프라인 모드)\n\n${building.description}`);
+            navigate(`/detail/${building.id}`, {
+              state: {
+                building: building,
+                photoUrl: null,
+                analysisResult: analysisResult
+              }
+            });
+          } else {
+            alert('📷 사진을 촬영했지만 건물을 식별할 수 없습니다.\n\n네트워크 연결을 확인하고 다시 시도해주세요.');
+          }
         }
 
         setIsAnalyzing(false);
