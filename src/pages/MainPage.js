@@ -1,216 +1,307 @@
-import React, { useState, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+
+// CSS 애니메이션을 위한 스타일 추가
+const spinKeyframes = `
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+`;
+
+// 스타일 태그를 head에 추가
+if (!document.querySelector('#main-animations')) {
+  const style = document.createElement('style');
+  style.id = 'main-animations';
+  style.textContent = spinKeyframes;
+  document.head.appendChild(style);
+}
+
+// 칼만필터 클래스
+class KalmanFilter {
+  constructor() {
+    this.reset();
+  }
+  
+  reset() {
+    this.x = { lat: 0, lng: 0 };
+    this.P = { lat: 8000, lng: 8000 };
+    this.Q = { lat: 25, lng: 25 };
+    this.initialized = false;
+    this.count = 0;
+  }
+    
+  update(measurement) {
+    this.count++;
+      
+    if (!this.initialized) {
+      this.x.lat = measurement.latitude;
+      this.x.lng = measurement.longitude;
+      this.initialized = true;
+      return {
+        latitude: measurement.latitude,
+        longitude: measurement.longitude,
+        accuracy: measurement.accuracy
+      };
+    }
+    
+    const R = {
+      lat: Math.max(measurement.accuracy / 3, 30),
+      lng: Math.max(measurement.accuracy / 3, 30)
+    };
+    
+    const x_pred = { lat: this.x.lat, lng: this.x.lng };
+    const P_pred = { lat: this.P.lat + this.Q.lat, lng: this.P.lng + this.Q.lng };
+    
+    const K = {
+      lat: P_pred.lat / (P_pred.lat + R.lat),
+      lng: P_pred.lng / (P_pred.lng + R.lng)
+    };
+    
+    this.x.lat = x_pred.lat + K.lat * (measurement.latitude - x_pred.lat);
+    this.x.lng = x_pred.lng + K.lng * (measurement.longitude - x_pred.lng);
+    
+    this.P.lat = (1 - K.lat) * P_pred.lat;
+    this.P.lng = (1 - K.lng) * P_pred.lng;
+    
+    return {
+      latitude: this.x.lat,
+      longitude: this.x.lng,
+      accuracy: Math.sqrt(this.P.lat + this.P.lng)
+    };
+  }
+}
 
 function MainPage() {
   const navigate = useNavigate();
-  const [nearbyHeritage, setNearbyHeritage] = useState([]);
-  const [currentLocation, setCurrentLocation] = useState(null);
-  const [currentAddress, setCurrentAddress] = useState('위치 확인 중...');
-  const [locationError, setLocationError] = useState(null);
-
-  // 주요 문화재 데이터 (큰 문화재들만)
-  const majorHeritageData = [
-    {
-      id: 'gyeongbokgung',
-      name: '경복궁',
-      nameEn: 'Gyeongbokgung Palace',
-      location: '서울시 종로구 사직로 161',
-      coordinates: { lat: 37.5788, lng: 126.9770 },
-      culturalProperty: '사적 제117호',
-      description: '조선왕조 제일의 법궁',
-      image: '/heritage/gyeonghoeru.jpg', // 경복궁 대표 이미지로 경회루 사용
-      category: 'palace'
-    },
-    {
-      id: 'changdeokgung',
-      name: '창덕궁',
-      nameEn: 'Changdeokgung Palace',
-      location: '서울시 종로구 율곡로 99',
-      coordinates: { lat: 37.5794, lng: 126.9910 },
-      culturalProperty: '사적 제122호 (유네스코 세계문화유산)',
-      description: '조선왕조의 이궁, 유네스코 세계문화유산',
-      image: '/heritage/changdeokgung.jpg',
-      category: 'palace'
-    },
-    {
-      id: 'deoksugung',
-      name: '덕수궁',
-      nameEn: 'Deoksugung Palace',
-      location: '서울시 중구 세종대로 99',
-      coordinates: { lat: 37.5658, lng: 126.9751 },
-      culturalProperty: '사적 제124호',
-      description: '대한제국의 황궁',
-      image: '/heritage/deoksugung.jpg',
-      category: 'palace'
-    },
-    {
-      id: 'changgyeonggung',
-      name: '창경궁',
-      nameEn: 'Changgyeonggung Palace',
-      location: '서울시 종로구 창경궁로 185',
-      coordinates: { lat: 37.5792, lng: 126.9950 },
-      culturalProperty: '사적 제123호',
-      description: '조선왕조의 이궁',
-      image: '/heritage/changgyeonggung.jpg',
-      category: 'palace'
-    },
-    {
-      id: 'jongmyo',
-      name: '종묘',
-      nameEn: 'Jongmyo Shrine',
-      location: '서울시 종로구 종로 157',
-      coordinates: { lat: 37.5744, lng: 126.9944 },
-      culturalProperty: '사적 제125호 (유네스코 세계문화유산)',
-      description: '조선왕조 왕과 왕비의 신주를 모신 사당',
-      image: '/heritage/jongmyo.jpg',
-      category: 'shrine'
-    },
-    {
-      id: 'namdaemun',
-      name: '숭례문 (남대문)',
-      nameEn: 'Sungnyemun Gate',
-      location: '서울시 중구 세종대로 40',
-      coordinates: { lat: 37.5597, lng: 126.9756 },
-      culturalProperty: '국보 제1호',
-      description: '서울 성곽의 정문',
-      image: '/heritage/namdaemun.jpg',
-      category: 'gate'
-    },
-    {
-      id: 'dongdaemun',
-      name: '흥인지문 (동대문)',
-      nameEn: 'Heunginjimun Gate',
-      location: '서울시 종로구 종로 288',
-      coordinates: { lat: 37.5711, lng: 126.9946 },
-      culturalProperty: '보물 제1호',
-      description: '서울 성곽의 동문',
-      image: '/heritage/dongdaemun.jpg',
-      category: 'gate'
-    },
-    {
-      id: 'bulguksa',
-      name: '불국사',
-      nameEn: 'Bulguksa Temple',
-      location: '경북 경주시 불국로 385',
-      coordinates: { lat: 35.7898, lng: 129.3320 },
-      culturalProperty: '사적 제502호 (유네스코 세계문화유산)',
-      description: '신라 불교 예술의 걸작',
-      image: '/heritage/bulguksa.jpg',
-      category: 'temple'
-    },
-    {
-      id: 'seokguram',
-      name: '석굴암',
-      nameEn: 'Seokguram Grotto',
-      location: '경북 경주시 진현동 999',
-      coordinates: { lat: 35.7948, lng: 129.3469 },
-      culturalProperty: '국보 제24호 (유네스코 세계문화유산)',
-      description: '신라 석굴 예술의 최고봉',
-      image: '/heritage/seokguram.jpg',
-      category: 'temple'
-    },
-    {
-      id: 'haeinsa',
-      name: '해인사',
-      nameEn: 'Haeinsa Temple',
-      location: '경남 합천군 가야면 해인사길 122',
-      coordinates: { lat: 35.8014, lng: 128.0981 },
-      culturalProperty: '유네스코 세계문화유산',
-      description: '팔만대장경을 보관한 사찰',
-      image: '/heritage/haeinsa.jpg',
-      category: 'temple'
+  const [currentGPS, setCurrentGPS] = useState(null);
+  const [isGPSReady, setIsGPSReady] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isIOS, setIsIOS] = useState(false);
+  const [isAndroid, setIsAndroid] = useState(false);
+  const kalmanFilterRef = useRef(null);
+  const [gpsInterval, setGpsInterval] = useState(null);
+  
+  const getKalmanFilter = () => {
+    if (!kalmanFilterRef.current) {
+      kalmanFilterRef.current = new KalmanFilter();
     }
-  ];
+    return kalmanFilterRef.current;
+  };
 
   useEffect(() => {
-    getCurrentLocationAndFindNearby();
+    // 기기 타입 감지
+    const userAgent = navigator.userAgent;
+    setIsIOS(/iPhone|iPad|iPod/i.test(userAgent));
+    setIsAndroid(/Android/i.test(userAgent));
+    
+    // GPS 수집 시작
+    startGPSCollection();
+    
+    // 컴포넌트 언마운트 시 GPS 중지
+    return () => {
+      stopContinuousGPSTracking();
+    };
   }, []);
-
-  // 카카오 지도 API로 주소 가져오기
-  const getAddressFromCoordinates = (lat, lng) => {
-    if (window.kakao && window.kakao.maps && window.kakao.maps.services) {
-      const geocoder = new window.kakao.maps.services.Geocoder();
-
-      geocoder.coord2Address(lng, lat, (result, status) => {
-        if (status === window.kakao.maps.services.Status.OK && result[0]) {
-          const addressInfo = result[0];
-          let address = '주소 확인 중...';
-
-          // 도로명 주소 우선, 없으면 지번 주소
-          if (addressInfo.road_address) {
-            address = addressInfo.road_address.address_name;
-          } else if (addressInfo.address) {
-            address = addressInfo.address.address_name;
-          }
-
-          console.log('현재 주소:', address);
-          setCurrentAddress(address);
-        } else {
-          console.log('주소 변환 실패');
-          setCurrentAddress(`${lat.toFixed(4)}, ${lng.toFixed(4)}`);
-        }
-      });
-    } else {
-      console.log('카카오 지도 API가 로드되지 않았습니다.');
-      setCurrentAddress(`${lat.toFixed(4)}, ${lng.toFixed(4)}`);
-    }
-  };
-
-  // 현재 위치 가져오기 및 가까운 문화재 찾기
-  const getCurrentLocationAndFindNearby = () => {
-    setCurrentAddress('위치 확인 중...');
-
+  
+  const startGPSCollection = async () => {
     if (!navigator.geolocation) {
-      setLocationError('위치 서비스를 지원하지 않는 브라우저입니다.');
-      // 기본 위치 (서울 시청) 사용
-      const defaultLocation = { lat: 37.5665, lng: 126.9780 };
-      setCurrentLocation(defaultLocation);
-      getAddressFromCoordinates(defaultLocation.lat, defaultLocation.lng);
-      findNearbyHeritage(defaultLocation);
+      setIsLoading(false);
       return;
     }
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const location = {
-          lat: position.coords.latitude,
-          lng: position.coords.longitude
+    
+    getKalmanFilter().reset();
+    
+    for (let i = 0; i < 10; i++) {
+      try {
+        const position = await getSingleGPSReading();
+        const measurement = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          accuracy: position.coords.accuracy
         };
-        console.log('현재 위치:', location);
-        setCurrentLocation(location);
-        setLocationError(null);
-
-        // 주소 가져오기
-        getAddressFromCoordinates(location.lat, location.lng);
-
-        // 가까운 문화재 찾기
-        findNearbyHeritage(location);
-      },
-      (error) => {
-        console.error('위치 조회 실패:', error);
-        setLocationError('위치 정보를 가져올 수 없습니다.');
-
-        // 기본 위치 (서울 시청) 사용
-        const defaultLocation = { lat: 37.5665, lng: 126.9780 };
-        setCurrentLocation(defaultLocation);
-        getAddressFromCoordinates(defaultLocation.lat, defaultLocation.lng);
-        findNearbyHeritage(defaultLocation);
-      },
-      {
+        
+        const filteredResult = getKalmanFilter().update(measurement);
+        
+        const finalGPS = {
+          latitude: parseFloat(filteredResult.latitude.toFixed(7)),
+          longitude: parseFloat(filteredResult.longitude.toFixed(7)),
+          accuracy: filteredResult.accuracy,
+          timestamp: Date.now(),
+          deviceType: isIOS ? 'iOS' : isAndroid ? 'Android' : 'Other',
+          captureTime: new Date().toISOString(),
+          measurementCount: i + 1
+        };
+        
+        setCurrentGPS(finalGPS);
+        
+        // 정확도 50m 이하면 초기 수집 완료 및 실시간 업데이트 시작
+        if (filteredResult.accuracy <= 50) {
+          localStorage.setItem('mainPageGPS', JSON.stringify(finalGPS));
+          setIsGPSReady(true);
+          setIsLoading(false);
+          await sendGPSToBackend(finalGPS);
+          startContinuousGPSTracking(); // 실시간 GPS 업데이트 시작
+          return;
+        }
+        
+        await sendGPSToBackend(finalGPS);
+        await new Promise(resolve => setTimeout(resolve, 500));
+      } catch (error) {
+        console.error(`GPS 측정 ${i+1} 실패:`, error);
+      }
+    }
+    
+    // 10번 측정 후에도 50m 이하가 안되면 마지막 값 사용
+    if (currentGPS) {
+      localStorage.setItem('mainPageGPS', JSON.stringify(currentGPS));
+      setIsGPSReady(true);
+      startContinuousGPSTracking(); // 실시간 GPS 업데이트 시작
+    }
+    setIsLoading(false);
+  };
+  
+  const getSingleGPSReading = () => {
+    return new Promise((resolve, reject) => {
+      const gpsOptions = {
         enableHighAccuracy: true,
         timeout: 10000,
-        maximumAge: 300000 // 5분 캐시
+        maximumAge: 0
+      };
+      
+      if (isIOS) {
+        setTimeout(() => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, gpsOptions);
+        }, 100);
+      } else {
+        navigator.geolocation.getCurrentPosition(resolve, reject, gpsOptions);
       }
-    );
+    });
   };
+  
+  // 실시간 GPS 업데이트 시작
+  const startContinuousGPSTracking = () => {
+    const interval = setInterval(async () => {
+      try {
+        const position = await getSingleGPSReading();
+        const measurement = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          accuracy: position.coords.accuracy
+        };
+        
+        // 칼만필터 적용
+        const filteredResult = getKalmanFilter().update(measurement);
+        
+        const updatedGPS = {
+          latitude: parseFloat(filteredResult.latitude.toFixed(7)),
+          longitude: parseFloat(filteredResult.longitude.toFixed(7)),
+          accuracy: filteredResult.accuracy,
+          timestamp: Date.now(),
+          deviceType: isIOS ? 'iOS' : isAndroid ? 'Android' : 'Other',
+          captureTime: new Date().toISOString(),
+          measurementCount: getKalmanFilter().count
+        };
+        
+        setCurrentGPS(updatedGPS);
+        localStorage.setItem('mainPageGPS', JSON.stringify(updatedGPS));
+        await sendGPSToBackend(updatedGPS);
+        
+      } catch (error) {
+        console.error('GPS 실시간 업데이트 실패:', error);
+      }
+    }, 5000); // 5초마다 업데이트
+    
+    setGpsInterval(interval);
+  };
+  
+  // GPS 업데이트 중지
+  const stopContinuousGPSTracking = () => {
+    if (gpsInterval) {
+      clearInterval(gpsInterval);
+      setGpsInterval(null);
+    }
+  };
+
+  const sendGPSToBackend = async (gpsData) => {
+    try {
+      const possibleIPs = [
+        '192.168.0.100',
+        '192.168.1.100',
+        '10.0.0.100',
+        window.location.hostname,
+        'localhost',
+        '127.0.0.1'
+      ];
+      
+      for (const ip of possibleIPs) {
+        const url = `http://${ip}:5003/api/gps`;
+        try {
+          const response = await fetch(url, {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            body: JSON.stringify(gpsData)
+          });
+          
+          if (response.ok) {
+            const result = await response.json();
+            return result;
+          }
+        } catch (error) {
+          // 연결 실패 시 다음 IP 시도
+        }
+      }
+    } catch (error) {
+      console.error('백엔드 전송 오류:', error);
+    }
+  };
+
+  // S3 이미지 URL 생성 함수
+  const getS3ImageUrl = (name) => {
+    const url = `https://myturn9.s3.amazonaws.com/Cultural%20Heritage/${encodeURIComponent(name)}.jpg`;
+    console.log(`S3 URL 생성: ${name} -> ${url}`);
+    return url;
+  };
+
+  // 서울 관광지 데이터
+  const allHeritageData = [
+    { id: 'gangsong', name: '간송옛집', lat: 37.5756500, lng: 126.9990370, address: '서울시 성북구 성북로 102-11', image: getS3ImageUrl('간송옛집') },
+    { id: 'gyeongbokgung', name: '경복궁', lat: 37.5796010, lng: 126.9770350, address: '서울시 종로구 사직로 161', image: getS3ImageUrl('경복궁') },
+    { id: 'gyeonghuigung', name: '경희궁', lat: 37.5715050, lng: 126.9694020, address: '서울시 종로구 새문안로 45', image: getS3ImageUrl('경희궁') },
+    { id: 'gwanghwamun', name: '광화문', lat: 37.5759830, lng: 126.9768110, address: '서울시 종로구 세종대로 172', image: getS3ImageUrl('광화문') },
+    { id: 'national_museum', name: '국립중앙박물관', lat: 37.5241130, lng: 126.9802590, address: '서울시 용산구 서빙고로 137', image: getS3ImageUrl('국립중앙박물관') },
+    { id: 'namsan_tower', name: '남산타워', lat: 37.5512090, lng: 126.9882280, address: '서울시 용산구 남산공원길 105', image: getS3ImageUrl('남산타워') },
+    { id: 'deoksugung', name: '덕수궁', lat: 37.5658340, lng: 126.9751240, address: '서울시 중구 세종대로 99', image: getS3ImageUrl('덕수궁') },
+    { id: 'ttukseom', name: '뚝섬', lat: 37.5309820, lng: 127.0709640, address: '서울시 성동구 자동차시장길 49', image: getS3ImageUrl('뚝섬') },
+    { id: 'lotte_tower', name: '롯데타워', lat: 37.5125910, lng: 127.1025490, address: '서울시 송파구 올림픽로 300', image: getS3ImageUrl('롯데타워') },
+    { id: 'myeongdong_cathedral', name: '명동성당', lat: 37.5636920, lng: 126.9865340, address: '서울시 중구 명동길 74', image: getS3ImageUrl('명동성당') },
+    { id: 'banpo_island', name: '새빛둥둥섬', lat: 37.5258220, lng: 127.0724620, address: '서울시 서초구 신반포로 11', image: getS3ImageUrl('새빛둥둥섬') },
+    { id: 'seodaemun_park', name: '서대문독립공원', lat: 37.5741140, lng: 126.9586390, address: '서울시 서대문구 통일로 251', image: getS3ImageUrl('서대문독립공원') },
+    { id: 'seodaemun_prison', name: '서대문형무소', lat: 37.5735460, lng: 126.9575230, address: '서울시 서대문구 통일로 251', image: getS3ImageUrl('서대문형무소') },
+    { id: 'seoul_forest', name: '서울숲', lat: 37.5442890, lng: 127.0370130, address: '서울시 성동구 뚝섬로 273', image: getS3ImageUrl('서울숲') },
+    { id: 'seoul_station', name: '서울역', lat: 37.5553620, lng: 126.9706420, address: '서울시 중구 한강대로 405', image: getS3ImageUrl('서울역') },
+    { id: 'seokchon_lake', name: '석촌호수', lat: 37.5098140, lng: 127.1033380, address: '서울시 송파구 잠실동 47', image: getS3ImageUrl('석촌호수') },
+    { id: 'childrens_grand_park', name: '어린이대공원', lat: 37.5481300, lng: 127.0814060, address: '서울시 광진구 능동로 216', image: getS3ImageUrl('어린이대공원') },
+    { id: 'yeonsan_tomb', name: '연산군묘', lat: 37.6191770, lng: 127.0647980, address: '서울시 도봉구 방학동 산1-1', image: getS3ImageUrl('연산군묘') },
+    { id: 'arts_center', name: '예술의전당', lat: 37.4790540, lng: 127.0118640, address: '서울시 서초구 남부순환로 2406', image: getS3ImageUrl('예술의전당') },
+    { id: 'olympic_park', name: '올림픽공원', lat: 37.5199970, lng: 127.1244360, address: '서울시 송파구 올림픽로 424', image: getS3ImageUrl('올림픽공원') },
+    { id: 'war_memorial', name: '전쟁기념관', lat: 37.5346020, lng: 126.9779640, address: '서울시 용산구 이태원로 29', image: getS3ImageUrl('전쟁기념관') },
+    { id: 'jongmyo', name: '종묘', lat: 37.5747710, lng: 126.9942700, address: '서울시 종로구 종로 157', image: getS3ImageUrl('종묘') },
+    { id: 'changgyeonggung', name: '창경궁', lat: 37.5795730, lng: 126.9954760, address: '서울시 종로구 창경궁로 185', image: getS3ImageUrl('창경궁') },
+    { id: 'changnyeong_palace', name: '창녕위궁재사', lat: 37.5749800, lng: 126.9863500, address: '서울시 종로구 인사동길 30-1', image: getS3ImageUrl('창녕위궁재사') },
+    { id: 'changdeokgung', name: '창덕궁', lat: 37.5797220, lng: 126.9910140, address: '서울시 종로구 율곡로 99', image: getS3ImageUrl('창덕궁') },
+    { id: 'national_cemetery', name: '현충원', lat: 37.5020980, lng: 126.9752550, address: '서울시 동작구 현충로 210', image: getS3ImageUrl('현충원') }
+  ];
 
   // 두 좌표 간의 거리 계산 (km 단위)
   const calculateDistance = (lat1, lng1, lat2, lng2) => {
     const R = 6371; // 지구 반지름 (km)
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLng = (lng2 - lng1) * Math.PI / 180;
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
       Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
       Math.sin(dLng / 2) * Math.sin(dLng / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
@@ -228,201 +319,78 @@ function MainPage() {
     }
   };
 
-  // 카카오 Places API로 장소 사진 검색
-  const searchPlaceImages = async (heritage) => {
-    return new Promise((resolve) => {
-      if (window.kakao && window.kakao.maps && window.kakao.maps.services) {
-        const places = new window.kakao.maps.services.Places();
+  // GPS 기반 가까운 관광지 계산
+  const getNearbyHeritage = () => {
+    if (!currentGPS) return allHeritageData.slice(0, 3);
 
-        // 문화재 이름으로 검색
-        places.keywordSearch(heritage.name, (result, status) => {
-          if (status === window.kakao.maps.services.Status.OK && result.length > 0) {
-            const place = result[0];
-            console.log(`${heritage.name} 검색 결과:`, place);
-
-            // 카카오에서 제공하는 장소 정보가 있으면 사용
-            if (place.place_url) {
-              // 실제로는 카카오 API에서 직접 이미지를 제공하지 않으므로
-              // 대신 구글 이미지나 다른 방법을 사용해야 합니다
-              resolve({
-                ...heritage,
-                kakaoPlaceId: place.id,
-                kakaoPlaceUrl: place.place_url,
-                phone: place.phone || '',
-                categoryName: place.category_name || ''
-              });
-            } else {
-              resolve(heritage);
-            }
-          } else {
-            console.log(`${heritage.name} 검색 결과 없음`);
-            resolve(heritage);
-          }
-        }, {
-          location: new window.kakao.maps.LatLng(heritage.coordinates.lat, heritage.coordinates.lng),
-          radius: 1000 // 1km 반경 내에서 검색
-        });
-      } else {
-        resolve(heritage);
-      }
-    });
-  };
-
-  // 구글 이미지 검색 API 대안 (실제로는 서버에서 처리해야 함)
-  const getHeritageImageUrl = (heritage) => {
-    // 기존 이미지가 있으면 사용
-    const existingImages = {
-      'gyeongbokgung': '/heritage/gyeonghoeru.jpg',
-      'changdeokgung': '/heritage/changdeokgung.jpg',
-      'deoksugung': '/heritage/deoksugung.jpg',
-      'jongmyo': '/heritage/jongmyo.jpg',
-      'namdaemun': '/heritage/namdaemun.jpg',
-      'dongdaemun': '/heritage/dongdaemun.jpg'
-    };
-
-    if (existingImages[heritage.id]) {
-      return existingImages[heritage.id];
-    }
-
-    // 위키미디어 Commons API를 사용한 이미지 검색 (무료)
-    // 실제로는 서버에서 처리하는 것이 좋습니다
-    return `https://commons.wikimedia.org/w/api.php?action=query&format=json&prop=pageimages&titles=${encodeURIComponent(heritage.name)}&pithumbsize=300&origin=*`;
-  };
-
-  // 위키미디어에서 이미지 가져오기
-  const fetchWikimediaImage = async (heritage) => {
-    try {
-      const response = await fetch(
-        `https://commons.wikimedia.org/w/api.php?action=query&format=json&prop=pageimages&titles=${encodeURIComponent(heritage.name)}&pithumbsize=300&origin=*`
-      );
-      const data = await response.json();
-      const pages = data.query?.pages;
-
-      if (pages) {
-        const pageId = Object.keys(pages)[0];
-        const page = pages[pageId];
-        if (page.thumbnail?.source) {
-          console.log(`${heritage.name} 위키미디어 이미지 찾음:`, page.thumbnail.source);
-          return page.thumbnail.source;
-        }
-      }
-    } catch (error) {
-      console.log(`${heritage.name} 위키미디어 이미지 검색 실패:`, error);
-    }
-    return null;
-  };
-
-  // 위키피디아 이미지 가져오기 (개선된 버전)
-  const fetchWikipediaImage = async (heritage) => {
-    try {
-      const title = encodeURIComponent(heritage.name);
-      const url = `https://commons.wikimedia.org/w/api.php?action=query&format=json&formatversion=2&prop=pageimages&piprop=thumbnail|original&pithumbsize=300&pilicense=any&origin=*&titles=${title}`;
-
-      console.log(`🔍 ${heritage.name} 위키피디아 이미지 검색 중...`);
-
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      const json = await response.json();
-      const pages = json.query?.pages;
-
-      if (pages && pages.length > 0) {
-        const page = pages[0];
-        const thumbnailUrl = page.thumbnail?.source;
-        const originalUrl = page.original?.source;
-
-        if (thumbnailUrl) {
-          console.log(`✅ ${heritage.name} 위키피디아 이미지 찾음:`, thumbnailUrl);
-          return thumbnailUrl;
-        } else if (originalUrl) {
-          console.log(`✅ ${heritage.name} 위키피디아 원본 이미지 찾음:`, originalUrl);
-          return originalUrl;
-        }
-      }
-
-      console.log(`❌ ${heritage.name} 위키피디아 이미지 없음`);
-      return null;
-    } catch (error) {
-      console.error(`❌ ${heritage.name} 위키피디아 이미지 검색 실패:`, error);
-      return null;
-    }
-  };
-
-  // 기본 이미지 매핑 (로컬 이미지 우선 사용)
-  const getHeritageImage = (heritage) => {
-    const imageMap = {
-      'gyeongbokgung': '/heritage/gyeonghoeru.jpg',
-      'changdeokgung': '/heritage/changdeokgung.jpg',
-      'deoksugung': '/heritage/deoksugung.jpg',
-      'changgyeonggung': '/heritage/changgyeonggung.jpg',
-      'jongmyo': '/heritage/jongmyo.jpg',
-      'namdaemun': '/heritage/namdaemun.jpg',
-      'dongdaemun': '/heritage/dongdaemun.jpg',
-      'bulguksa': '/heritage/bulguksa.jpg',
-      'seokguram': '/heritage/seokguram.jpg',
-      'haeinsa': '/heritage/haeinsa.jpg'
-    };
-
-    // 기존 이미지가 있으면 사용
-    if (heritage.image && heritage.image !== '/heritage/default.jpg') {
-      return heritage.image;
-    }
-
-    // 매핑된 이미지가 있으면 사용
-    if (imageMap[heritage.id]) {
-      return imageMap[heritage.id];
-    }
-
-    // 기본 이미지 사용
-    return '/heritage/default.jpg';
-  };
-
-
-
-  // 가까운 문화재 찾기 (기본 이미지만 사용)
-  const findNearbyHeritage = (userLocation) => {
-    const heritageWithDistance = majorHeritageData.map(heritage => {
+    const heritageWithDistance = allHeritageData.map(heritage => {
       const distance = calculateDistance(
-        userLocation.lat,
-        userLocation.lng,
-        heritage.coordinates.lat,
-        heritage.coordinates.lng
+        currentGPS.latitude,
+        currentGPS.longitude,
+        heritage.lat,
+        heritage.lng
       );
-
       return {
         ...heritage,
         distance: distance,
-        formattedDistance: formatDistance(distance),
-        image: getHeritageImage(heritage) // 기본 이미지 사용
+        formattedDistance: formatDistance(distance)
       };
     });
 
-    // 거리순으로 정렬하고 가장 가까운 3개만 선택
-    const sortedHeritage = heritageWithDistance
+    return heritageWithDistance
       .sort((a, b) => a.distance - b.distance)
       .slice(0, 3);
-
-    console.log('가까운 문화재 3곳:', sortedHeritage);
-    setNearbyHeritage(sortedHeritage);
   };
 
-  // 새로고침 버튼
-  const handleRefreshLocation = () => {
-    setLocationError(null);
-    setNearbyHeritage([]);
-    getCurrentLocationAndFindNearby();
-  };
+  const heritageData = getNearbyHeritage();
 
   return (
-    <div style={{
-      height: '100vh',
-      backgroundColor: 'white',
-      display: 'flex',
+    <div style={{ 
+      height: '100vh', 
+      backgroundColor: 'white', 
+      display: 'flex', 
       flexDirection: 'column',
       overflow: 'hidden'
     }}>
+      {/* 로딩 모달 */}
+      {isLoading && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.7)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            padding: '30px',
+            borderRadius: '15px',
+            textAlign: 'center',
+            minWidth: '200px'
+          }}>
+            <div style={{
+              width: '40px',
+              height: '40px',
+              border: '3px solid #f3f3f3',
+              borderTop: '3px solid #007AFF',
+              borderRadius: '50%',
+              animation: 'spin 1s linear infinite',
+              margin: '0 auto 15px'
+            }}></div>
+            <div style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '5px' }}>
+              로딩중
+            </div>
+            <div style={{ fontSize: '12px', color: '#666' }}>
+              GPS 정보를 처리하고 있습니다...
+            </div>
+          </div>
+        </div>
+      )}
       {/* Header */}
       <div style={{
         backgroundColor: 'white',
@@ -434,12 +402,12 @@ function MainPage() {
         flexShrink: 0
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <img
-            src="/image/jjikgeo_icon.png"
+          <img 
+            src="/image/jjikgeo_icon.png" 
             alt="찍지오"
-            style={{
-              width: '45px',
-              height: '45px',
+            style={{ 
+              width: '45px', 
+              height: '45px', 
               objectFit: 'cover'
             }}
             onError={(e) => {
@@ -448,10 +416,10 @@ function MainPage() {
               e.target.nextSibling.style.display = 'flex';
             }}
           />
-          <div style={{
-            width: '45px',
-            height: '45px',
-            background: '#007AFF',
+          <div style={{ 
+            width: '45px', 
+            height: '45px', 
+            background: '#007AFF', 
             borderRadius: '8px',
             display: 'none',
             alignItems: 'center',
@@ -463,8 +431,8 @@ function MainPage() {
             찍지오
           </div>
         </div>
-        <div style={{
-          fontSize: '14px',
+        <div style={{ 
+          fontSize: '14px', 
           color: '#007AFF',
           cursor: 'pointer',
           padding: '5px 10px',
@@ -476,24 +444,24 @@ function MainPage() {
       </div>
 
       {/* Content */}
-      <div style={{
-        flex: 1,
-        padding: '20px 20px 10px 20px',
-        display: 'flex',
+      <div style={{ 
+        flex: 1, 
+        padding: '20px 20px 10px 20px', 
+        display: 'flex', 
         flexDirection: 'column',
         overflow: 'hidden'
       }}>
         {/* Top Images */}
-        <div style={{
-          display: 'flex',
+        <div style={{ 
+          display: 'flex', 
           gap: '8px',
           marginBottom: '25px',
           flexShrink: 0
         }}>
-          <img
-            src="/image/banner_building.png"
+          <img 
+            src="/image/banner_building.png" 
             alt="이벤트 1"
-            style={{
+            style={{ 
               flex: 1,
               height: '100px',
               objectFit: 'contain',
@@ -507,10 +475,10 @@ function MainPage() {
               e.target.innerHTML = '이미지1';
             }}
           />
-          <img
-            src="/image/banner_logo.png"
+          <img 
+            src="/image/banner_logo.png" 
             alt="찍지오"
-            style={{
+            style={{ 
               flex: 1,
               height: '100px',
               objectFit: 'cover',
@@ -524,10 +492,10 @@ function MainPage() {
               e.target.innerHTML = '찍지오';
             }}
           />
-          <img
-            src="/image/banner_person.png"
+          <img 
+            src="/image/banner_person.png" 
             alt="사람 사진"
-            style={{
+            style={{ 
               flex: 1,
               height: '100px',
               objectFit: 'cover',
@@ -543,18 +511,43 @@ function MainPage() {
           />
         </div>
 
+        {/* GPS 좌표 표시 */}
+        {currentGPS && isGPSReady && (
+          <div style={{
+            backgroundColor: '#f0f8ff',
+            padding: '12px',
+            borderRadius: '8px',
+            marginBottom: '15px',
+            border: '1px solid #007AFF',
+            flexShrink: 0
+          }}>
+            <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#007AFF', marginBottom: '5px' }}>
+              📍 GPS 좌표 (칼만필터 적용)
+            </div>
+            <div style={{ fontSize: '12px', color: '#333' }}>
+              위도: {currentGPS.latitude.toFixed(7)}
+            </div>
+            <div style={{ fontSize: '12px', color: '#333' }}>
+              경도: {currentGPS.longitude.toFixed(7)}
+            </div>
+            <div style={{ fontSize: '12px', color: '#666', marginTop: '3px' }}>
+              정확도: {Math.round(currentGPS.accuracy)}m | 측정: {currentGPS.measurementCount}번 | 실시간 업데이트
+            </div>
+          </div>
+        )}
+
         {/* Quick Actions */}
-        <div style={{
-          display: 'flex',
+        <div style={{ 
+          display: 'flex', 
           gap: '10px',
           marginBottom: '25px',
           flexShrink: 0
         }}>
-          <div
-            className="card"
-            style={{
+          <div 
+            className="card" 
+            style={{ 
               flex: 1,
-              textAlign: 'center',
+              textAlign: 'center', 
               cursor: 'pointer',
               padding: '12px 8px',
               backgroundColor: 'white',
@@ -565,11 +558,11 @@ function MainPage() {
             <div style={{ fontSize: '18px', marginBottom: '5px' }}>❓</div>
             <div style={{ fontSize: '11px' }}>Help</div>
           </div>
-          <div
-            className="card"
-            style={{
+          <div 
+            className="card" 
+            style={{ 
               flex: 1,
-              textAlign: 'center',
+              textAlign: 'center', 
               cursor: 'pointer',
               padding: '12px 8px',
               backgroundColor: 'white',
@@ -581,11 +574,11 @@ function MainPage() {
             <div style={{ fontSize: '18px', marginBottom: '5px' }}>🚻</div>
             <div style={{ fontSize: '11px' }}>공용화장실</div>
           </div>
-          <div
-            className="card"
-            style={{
+          <div 
+            className="card" 
+            style={{ 
               flex: 1,
-              textAlign: 'center',
+              textAlign: 'center', 
               cursor: 'pointer',
               padding: '12px 8px',
               backgroundColor: 'white',
@@ -596,11 +589,11 @@ function MainPage() {
             <div style={{ fontSize: '18px', marginBottom: '5px' }}>💊</div>
             <div style={{ fontSize: '11px' }}>약국</div>
           </div>
-          <div
-            className="card"
-            style={{
+          <div 
+            className="card" 
+            style={{ 
               flex: 1,
-              textAlign: 'center',
+              textAlign: 'center', 
               cursor: 'pointer',
               padding: '12px 8px',
               backgroundColor: 'white',
@@ -613,223 +606,142 @@ function MainPage() {
           </div>
         </div>
 
-        {/* Nearby Heritage */}
-        <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginBottom: '15px'
-          }}>
-            <h2 style={{ fontSize: '16px', fontWeight: 'bold', margin: 0 }}>
-              📍 가까운 문화재
-            </h2>
-            <button
-              onClick={handleRefreshLocation}
-              style={{
-                background: 'none',
-                border: '1px solid #007AFF',
-                borderRadius: '15px',
-                padding: '4px 12px',
-                fontSize: '12px',
-                color: '#007AFF',
-                cursor: 'pointer'
-              }}
-            >
-              🔄 새로고침
-            </button>
-          </div>
-
-          {/* 위치 상태 표시 */}
-          {locationError && (
-            <div style={{
-              background: '#fff3cd',
-              border: '1px solid #ffeaa7',
-              borderRadius: '8px',
-              padding: '10px',
-              marginBottom: '15px',
-              fontSize: '12px',
-              color: '#856404'
-            }}>
-              ⚠️ {locationError} (기본 위치 사용 중)
-            </div>
-          )}
-
-          {currentLocation && !locationError && (
-            <div style={{
-              background: '#d4edda',
-              border: '1px solid #c3e6cb',
-              borderRadius: '8px',
-              padding: '10px',
-              marginBottom: '15px',
-              fontSize: '12px',
-              color: '#155724'
-            }}>
-              ✅ 현재 위치: {currentAddress}
-            </div>
-          )}
-
-          {/* 문화재 목록 */}
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '12px',
-            overflow: 'auto',
-            maxHeight: 'calc(100vh - 320px)', // 화면 높이에 맞춰 최대 높이 설정 (더 많은 공간)
-            paddingRight: '4px', // 스크롤바 공간
-            scrollbarWidth: 'thin', // Firefox용 얇은 스크롤바
-            scrollbarColor: '#c1c1c1 transparent' // Firefox용 스크롤바 색상
-          }}>
-            {nearbyHeritage.length === 0 ? (
-              <div style={{
-                textAlign: 'center',
-                padding: '40px 20px',
-                color: '#666'
-              }}>
-                <div style={{ fontSize: '48px', marginBottom: '10px' }}>🔍</div>
-                <p style={{ margin: 0, fontSize: '14px' }}>가까운 문화재를 찾고 있습니다...</p>
-              </div>
-            ) : (
-              nearbyHeritage.map((heritage, index) => (
-                <div
-                  key={heritage.id}
-                  style={{
-                    background: index === 0 ? '#e8f5e8' : '#faf3f3',
-                    borderRadius: '12px',
-                    padding: '12px',
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-                    display: 'flex',
-                    gap: '12px',
-                    cursor: 'pointer',
-                    border: index === 0 ? '2px solid #28a745' : 'none'
-                  }}
-                  onClick={() => navigate(`/heritage/${heritage.id}`)}
-                >
-                  {/* Left Image */}
-                  <div style={{ flexShrink: 0, position: 'relative' }}>
-                    <img
-                      src={heritage.image}
-                      alt={heritage.name}
-                      style={{
-                        width: '60px',
-                        height: '60px',
-                        objectFit: 'cover',
-                        borderRadius: '8px'
-                      }}
-                      onError={(e) => {
-                        e.target.style.display = 'none';
-                        e.target.nextSibling.style.display = 'flex';
-                      }}
-                    />
-                    <div
-                      style={{
-                        width: '60px',
-                        height: '60px',
-                        background: '#f0f0f0',
-                        display: 'none',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: '#999',
-                        fontSize: '24px',
-                        borderRadius: '8px'
-                      }}
-                    >
-                      🏛️
-                    </div>
-                    {/* 순위 표시 */}
-                    <div style={{
-                      position: 'absolute',
-                      top: '-5px',
-                      left: '-5px',
-                      width: '20px',
-                      height: '20px',
-                      borderRadius: '50%',
-                      background: index === 0 ? '#28a745' : index === 1 ? '#ffc107' : '#6c757d',
-                      color: 'white',
+        {/* Tourism News */}
+        <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
+          <h2 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '20px', margin: '0 0 20px 0' }}>
+            관광지 소식
+          </h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', paddingBottom: '20px' }}>
+            {heritageData.map(heritage => (
+              <div 
+                key={heritage.id}
+                style={{
+                  background: '#faf3f3',
+                  borderRadius: '12px',
+                  padding: '12px',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                  display: 'flex',
+                  gap: '12px',
+                  cursor: 'pointer'
+                }}
+                onClick={() => navigate(`/detail/${heritage.id}`)}
+              >
+                {/* Left Image */}
+                <div style={{ flexShrink: 0 }}>
+                  <img 
+                    src={heritage.image} 
+                    alt={heritage.name}
+                    style={{
+                      width: '60px',
+                      height: '60px',
+                      objectFit: 'cover',
+                      borderRadius: '8px'
+                    }}
+                    onLoad={() => {
+                      console.log(`✅ 이미지 로드 성공: ${heritage.name}`);
+                    }}
+                    onError={(e) => {
+                      console.error(`❌ 이미지 로드 실패: ${heritage.name}`);
+                      console.error(`실패 URL: ${e.target.src}`);
+                      
+                      // 다른 URL 형식 시도
+                      if (!e.target.dataset.retry) {
+                        e.target.dataset.retry = '1';
+                        const newUrl = `https://s3.amazonaws.com/myturn9/Cultural Heritage/${heritage.name}.jpg`;
+                        console.log(`폴백 URL 시도: ${newUrl}`);
+                        e.target.src = newUrl;
+                        return;
+                      }
+                      
+                      e.target.style.display = 'none';
+                      e.target.nextSibling.style.display = 'flex';
+                    }}
+                  />
+                  <div 
+                    style={{ 
+                      width: '60px', 
+                      height: '60px', 
+                      background: '#f0f0f0',
+                      display: 'none',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#999',
                       fontSize: '10px',
-                      fontWeight: 'bold',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}>
-                      {index + 1}
-                    </div>
-                  </div>
-
-                  {/* Right Info */}
-                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                    <div style={{
-                      fontSize: '14px',
-                      fontWeight: '600',
-                      marginBottom: '3px',
-                      color: '#333',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px'
-                    }}>
-                      {heritage.name}
-                      {index === 0 && <span style={{ fontSize: '12px' }}>🏆</span>}
-                    </div>
-                    <div style={{
-                      fontSize: '11px',
-                      color: '#666',
-                      marginBottom: '2px'
-                    }}>
-                      📍 {heritage.location}
-                    </div>
-                    <div style={{
-                      fontSize: '11px',
-                      color: '#666',
-                      marginBottom: '3px'
-                    }}>
-                      🏛️ {heritage.culturalProperty}
-                    </div>
-                    <div style={{
-                      fontSize: '12px',
-                      color: index === 0 ? '#28a745' : '#007AFF',
-                      fontWeight: '600'
-                    }}>
-                      📏 현재 위치에서 {heritage.formattedDistance}
-                    </div>
+                      borderRadius: '8px'
+                    }}
+                  >
+                    이미지
                   </div>
                 </div>
-              ))
-            )}
+
+                {/* Right Info */}
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                  <div style={{ 
+                    fontSize: '14px', 
+                    fontWeight: '600', 
+                    marginBottom: '3px',
+                    color: '#333'
+                  }}>
+                    {heritage.name}
+                  </div>
+                  <div style={{ 
+                    fontSize: '12px', 
+                    color: '#666',
+                    marginBottom: '3px'
+                  }}>
+                    📍 {heritage.address}
+                  </div>
+                  <div style={{ 
+                    fontSize: '12px', 
+                    color: '#007AFF',
+                    fontWeight: '500'
+                  }}>
+                    현재 위치에서 {heritage.formattedDistance || '계산 중...'}
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
 
       {/* Navigation Bar */}
       <div className="nav-bar">
-        <div
+        <div 
           className="nav-item"
           onClick={() => navigate('/stamp')}
           style={{ cursor: 'pointer' }}
         >
-          <div
-            className="nav-icon"
+          <div 
+            className="nav-icon" 
             style={{ backgroundImage: 'url(/image/rubber-stamp.png)' }}
           ></div>
           <span>스탬프</span>
         </div>
-        <div
+        <div 
           className="nav-item"
-          onClick={() => navigate('/camera')}
+          onClick={() => {
+            if (!isGPSReady) {
+              alert('로딩중입니다. 잠시만 기다려주세요.');
+              return;
+            }
+            navigate('/camera');
+          }}
           style={{ cursor: 'pointer' }}
         >
-          <div
-            className="nav-icon"
+          <div 
+            className="nav-icon" 
             style={{ backgroundImage: 'url(/image/nav_camera.png)' }}
           ></div>
           <span>사진찍기</span>
         </div>
-        <div
+        <div 
           className="nav-item"
           onClick={() => navigate('/settings')}
           style={{ cursor: 'pointer' }}
         >
-          <div
-            className="nav-icon"
+          <div 
+            className="nav-icon" 
             style={{ backgroundImage: 'url(/image/settings.png)' }}
           ></div>
           <span>설정</span>
