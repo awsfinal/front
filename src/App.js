@@ -6,6 +6,7 @@ import CameraPage from './pages/CameraPage';
 import ToiletPage from './pages/ToiletPage';
 import StampPage from './pages/StampPage';
 import DetailPage from './pages/DetailPage';
+import HeritagePage from './pages/HeritagePage';
 import SettingsPage from './pages/SettingsPage';
 import './App.css';
 
@@ -23,6 +24,7 @@ function App() {
           <Route path="/toilet" element={<ToiletPage />} />
           <Route path="/stamp" element={<StampPage />} />
           <Route path="/detail/:id" element={<DetailPage />} />
+          <Route path="/heritage/:id" element={<HeritagePage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Routes>
       </div>
