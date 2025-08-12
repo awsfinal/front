@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { translations, getLanguage } from '../utils/translations';
 
 // 분리된 유틸리티 및 훅 import
 import { gyeongbokgungBuildings, getEnglishName, getBuildYear, getCulturalProperty, getFeatures, getDetailedDescription, isInGyeongbokgung } from '../utils/buildingData';
@@ -40,6 +41,9 @@ function CameraPage() {
   const [currentHeading, setCurrentHeading] = useState(null);
   const [isIOS, setIsIOS] = useState(false);
   const [isAndroid, setIsAndroid] = useState(false);
+  const [language, setLanguage] = useState('ko');
+  
+  const t = translations[language];
   
 
   // 나침반 센서 초기화 (커스텀 훅 사용)
@@ -50,6 +54,10 @@ function CameraPage() {
     const userAgent = navigator.userAgent;
     setIsIOS(/iPhone|iPad|iPod/i.test(userAgent));
     setIsAndroid(/Android/i.test(userAgent));
+    
+    // 언어 설정 가져오기
+    const savedLanguage = getLanguage();
+    setLanguage(savedLanguage);
 
     // 카메라 시작
     startCamera();
@@ -62,7 +70,7 @@ function CameraPage() {
       setIsInitialGPSComplete(true);
       setLocationStatus(''); // 상태 메시지 숨김
     } else {
-      setLocationStatus('❌ GPS 데이터가 없습니다. 메인페이지로 돌아가세요.');
+      setLocationStatus(`❌ ${t.gpsDataMissing}`);
     }
 
     return () => {
@@ -268,7 +276,7 @@ function CameraPage() {
               animation: 'spin 1s linear infinite',
               marginBottom: '20px'
             }}></div>
-            <p>카메라를 준비하고 있습니다...</p>
+            <p>{t.preparingCamera}</p>
           </div>
         )}
 
@@ -304,7 +312,7 @@ function CameraPage() {
             {locationStatus}
             {currentHeading !== null && (
               <div style={{ fontSize: '12px', marginTop: '2px', opacity: 0.8 }}>
-                방위: {Math.round(currentHeading)}° ({getCompassDirection(currentHeading)})
+                {t.direction}: {Math.round(currentHeading)}° ({getCompassDirection(currentHeading)})
               </div>
             )}
           </div>
@@ -336,10 +344,10 @@ function CameraPage() {
               marginBottom: '20px'
             }}></div>
             <p style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '8px' }}>
-              🏛️ 문화재 인식 중...
+              🏛️ {t.recognizingHeritage}
             </p>
             <p style={{ fontSize: '14px', color: '#ccc' }}>
-              잠시만 기다려주세요
+              {t.pleaseWait}
             </p>
           </div>
         )}
@@ -367,7 +375,7 @@ function CameraPage() {
           opacity: 0.9,
           padding: '0 20px'
         }}>
-          <span style={{ fontWeight: 'bold' }}>tip.</span> {!isInitialGPSComplete ? 'GPS 평균 좌표 측정 중입니다...' : isIOS ? 'GPS 정확도를 위해 실외에서 촬영하세요' : isAndroid ? '위치 권한을 허용하고 실외에서 촬영하세요' : '대상이 잘 보이게 촬영해주세요'}
+          <span style={{ fontWeight: 'bold' }}>tip.</span> {!isInitialGPSComplete ? t.tipGpsMeasuring : isIOS ? t.tipIOS : isAndroid ? t.tipAndroid : t.tipDefault}
         </div>
 
         {/* Control Buttons - 네비게이션 바와 일직선 정렬 */}
@@ -383,7 +391,7 @@ function CameraPage() {
             onClick={handleCancel}
             style={{
               position: 'absolute',
-              left: 'calc(16.67% - 25px)', // 스탬프 중심과 일치
+              left: 'calc(16.67% - 28px)', // 스탬프 중심과 일치 - 3px 왼쪽으로 이동
               background: 'transparent',
               border: 'none',
               color: 'white',
@@ -395,7 +403,7 @@ function CameraPage() {
               transform: 'translateY(-10px)' // 10px 위로 이동
             }}
           >
-            취소
+            {t.cancel}
           </button>
 
           {/* Capture Button - 사진찍기와 일직선 */}
@@ -428,7 +436,7 @@ function CameraPage() {
             onClick={handleRetake}
             style={{
               position: 'absolute',
-              right: 'calc(16.67% - 30px)', // 설정 중심과 일치
+              right: 'calc(16.67% - 33px)', // 설정 중심과 일치 - 3px 왼쪽으로 이동
               background: 'transparent',
               border: 'none',
               color: 'white',
@@ -441,7 +449,7 @@ function CameraPage() {
               transform: 'translateY(-10px)' // 10px 위로 이동
             }}
           >
-            재촬영
+            {t.retake}
           </button>
         </div>
       </div>
@@ -457,7 +465,7 @@ function CameraPage() {
             className="nav-icon"
             style={{ backgroundImage: 'url(/image/rubber-stamp.png)' }}
           ></div>
-          <span>스탬프</span>
+          <span style={{ fontSize: '12px', whiteSpace: 'nowrap' }}>{t.stamp}</span>
         </div>
         <div
           className="nav-item active"
@@ -467,7 +475,7 @@ function CameraPage() {
             className="nav-icon"
             style={{ backgroundImage: 'url(/image/nav_camera.png)' }}
           ></div>
-          <span>사진찍기</span>
+          <span style={{ fontSize: '11px', whiteSpace: 'nowrap' }}>{t.camera}</span>
         </div>
         <div
           className="nav-item"
@@ -478,7 +486,7 @@ function CameraPage() {
             className="nav-icon"
             style={{ backgroundImage: 'url(/image/settings.png)' }}
           ></div>
-          <span>설정</span>
+          <span style={{ fontSize: '12px', whiteSpace: 'nowrap' }}>{t.settings}</span>
         </div>
       </div>
     </div>

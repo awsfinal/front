@@ -1,8 +1,16 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { translations, getLanguage } from '../utils/translations';
 
 function StampPage() {
   const navigate = useNavigate();
+  const [language, setLanguage] = useState('ko');
+  const t = translations[language];
+  
+  useEffect(() => {
+    const savedLanguage = getLanguage();
+    setLanguage(savedLanguage);
+  }, []);
 
   const stampData = [
     { 
@@ -63,7 +71,7 @@ function StampPage() {
         >
           ←
         </button>
-        <span style={{ fontSize: '18px', fontWeight: 'bold' }}>스탬프 수집</span>
+        <span style={{ fontSize: '18px', fontWeight: 'bold' }}>{t.stampCollection}</span>
       </div>
 
       {/* Progress */}
@@ -78,7 +86,7 @@ function StampPage() {
           {collectedCount} / {stampData.length}
         </div>
         <div style={{ color: '#666', marginBottom: '10px', fontSize: '14px' }}>
-          수집한 스탬프
+          {t.collectedStamps}
         </div>
         <div style={{ 
           width: '100%', 
@@ -208,8 +216,17 @@ function StampPage() {
           flexShrink: 0
         }}>
           <p style={{ fontSize: '12px', lineHeight: '1.4', margin: 0 }}>
-            문화재를 촬영하면 지도에 스탬프가 활성화됩니다<br/>
-            수집한 스탬프를 터치하면 상세 정보를 볼 수 있어요
+            {language === 'ko' ? (
+              <>
+                문화재를 촬영하면 지도에 스탬프가 활성화됩니다<br/>
+                수집한 스탬프를 터치하면 상세 정보를 볼 수 있어요
+              </>
+            ) : (
+              <>
+                Take photos of heritage sites to activate stamps on the map<br/>
+                Touch collected stamps to view detailed information
+              </>
+            )}
           </p>
         </div>
       </div>
@@ -224,7 +241,7 @@ function StampPage() {
             className="nav-icon" 
             style={{ backgroundImage: 'url(/image/rubber-stamp.png)' }}
           ></div>
-          <span>스탬프</span>
+          <span style={{ fontSize: '12px', whiteSpace: 'nowrap' }}>{t.stamp}</span>
         </div>
         <div 
           className="nav-item"
@@ -235,7 +252,7 @@ function StampPage() {
             className="nav-icon" 
             style={{ backgroundImage: 'url(/image/nav_camera.png)' }}
           ></div>
-          <span>사진찍기</span>
+          <span style={{ fontSize: '11px', whiteSpace: 'nowrap' }}>{t.camera}</span>
         </div>
         <div 
           className="nav-item"
@@ -246,7 +263,7 @@ function StampPage() {
             className="nav-icon" 
             style={{ backgroundImage: 'url(/image/settings.png)' }}
           ></div>
-          <span>설정</span>
+          <span style={{ fontSize: '12px', whiteSpace: 'nowrap' }}>{t.settings}</span>
         </div>
       </div>
     </div>

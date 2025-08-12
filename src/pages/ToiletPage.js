@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { translations, getLanguage } from '../utils/translations';
 
 function ToiletPage() {
   const navigate = useNavigate();
@@ -7,11 +8,20 @@ function ToiletPage() {
   const [map, setMap] = useState(null);
   const [toilets, setToilets] = useState([]);
   const [userLocation, setUserLocation] = useState(null);
-  const [currentAddress, setCurrentAddress] = useState('위치 확인 중...');
+  const [language, setLanguage] = useState('ko');
+  const [currentAddress, setCurrentAddress] = useState('');
   const [filters, setFilters] = useState({
     disabled: false,
     allDay: false
   });
+  
+  const t = translations[language];
+  
+  useEffect(() => {
+    const savedLanguage = getLanguage();
+    setLanguage(savedLanguage);
+    setCurrentAddress(savedLanguage === 'ko' ? '위치 확인 중...' : 'Checking location...');
+  }, []);
 
   // 사용자 위치 가져오기
   useEffect(() => {
@@ -516,11 +526,11 @@ function ToiletPage() {
           >
             ←
           </button>
-          <span style={{ fontSize: '18px', fontWeight: 'bold' }}>공용화장실</span>
+          <span style={{ fontSize: '18px', fontWeight: 'bold' }}>{t.publicToiletMap}</span>
           <div style={{ fontSize: '12px', color: '#007AFF', textAlign: 'right' }}>
             {userLocation && userLocation.accuracy && (
               <div>
-                정확도: {Math.round(userLocation.accuracy)}m
+                {t.accuracy}: {Math.round(userLocation.accuracy)}m
                 <br />
                 <button
                   onClick={() => window.location.reload()}
@@ -535,7 +545,7 @@ function ToiletPage() {
                     marginTop: '2px'
                   }}
                 >
-                  위치 새로고침
+                  {language === 'ko' ? '위치 새로고침' : 'Refresh Location'}
                 </button>
               </div>
             )}
@@ -583,7 +593,7 @@ function ToiletPage() {
               cursor: 'pointer'
             }}
           >
-            장애인전용
+            {t.disabledToilet}
           </button>
           <button
             onClick={() => toggleFilter('allDay')}
@@ -597,7 +607,7 @@ function ToiletPage() {
               cursor: 'pointer'
             }}
           >
-            24시간
+            {t.available24h}
           </button>
         </div>
       </div>
@@ -659,7 +669,7 @@ function ToiletPage() {
         {/* Toilet List */}
         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '15px', margin: '0 0 15px 0', flexShrink: 0 }}>
-            가까운 화장실
+            {t.nearestToilet}
           </h3>
 
           <div style={{ 
@@ -720,7 +730,7 @@ function ToiletPage() {
                 textAlign: 'center',
                 color: '#666'
               }}>
-                조건에 맞는 화장실이 없습니다.
+                {language === 'ko' ? '조건에 맞는 화장실이 없습니다.' : 'No toilets match the criteria.'}
               </div>
             )}
           </div>
@@ -738,7 +748,7 @@ function ToiletPage() {
             className="nav-icon"
             style={{ backgroundImage: 'url(/image/rubber-stamp.png)' }}
           ></div>
-          <span>스탬프</span>
+          <span style={{ fontSize: '12px', whiteSpace: 'nowrap' }}>{t.stamp}</span>
         </div>
         <div
           className="nav-item"
@@ -749,7 +759,7 @@ function ToiletPage() {
             className="nav-icon"
             style={{ backgroundImage: 'url(/image/nav_camera.png)' }}
           ></div>
-          <span>사진찍기</span>
+          <span style={{ fontSize: '11px', whiteSpace: 'nowrap' }}>{t.camera}</span>
         </div>
         <div
           className="nav-item"
@@ -760,7 +770,7 @@ function ToiletPage() {
             className="nav-icon"
             style={{ backgroundImage: 'url(/image/settings.png)' }}
           ></div>
-          <span>설정</span>
+          <span style={{ fontSize: '12px', whiteSpace: 'nowrap' }}>{t.settings}</span>
         </div>
       </div>
     </div>

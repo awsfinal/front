@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import PhilosophyModal from '../components/PhilosophyModal';
+import { translations, getLanguage } from '../utils/translations';
 
 // 경복궁 건물 데이터 (CameraPage와 동일)
 const gyeongbokgungBuildings = {
@@ -128,8 +129,15 @@ function DetailPage() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiContent, setAiContent] = useState({});
   const [aiSectionLoading, setAiSectionLoading] = useState({});
+  const [language, setLanguage] = useState('ko');
+  
+  const t = translations[language];
 
   useEffect(() => {
+    // 언어 설정 가져오기
+    const savedLanguage = getLanguage();
+    setLanguage(savedLanguage);
+    
     // location.state에서 건물 정보가 전달된 경우 (카메라에서 온 경우)
     if (location.state && location.state.building) {
       setBuilding(location.state.building);
@@ -299,7 +307,7 @@ function DetailPage() {
             animation: 'spin 1s linear infinite',
             margin: '0 auto 20px'
           }}></div>
-          <p>건물 정보를 불러오는 중...</p>
+          <p>{language === 'ko' ? '건물 정보를 불러오는 중...' : 'Loading building information...'}</p>
         </div>
       </div>
     );
@@ -316,9 +324,9 @@ function DetailPage() {
       }}>
         <div style={{ textAlign: 'center', padding: '20px' }}>
           <div style={{ fontSize: '48px', marginBottom: '20px' }}>🏛️</div>
-          <p style={{ fontSize: '16px', marginBottom: '10px' }}>건물 정보 오류</p>
+          <p style={{ fontSize: '16px', marginBottom: '10px' }}>{language === 'ko' ? '건물 정보 오류' : 'Building Information Error'}</p>
           <p style={{ fontSize: '14px', color: '#666', marginBottom: '20px' }}>
-            {error || '건물 정보를 찾을 수 없습니다.'}
+            {error || (language === 'ko' ? '건물 정보를 찾을 수 없습니다.' : 'Building information not found.')}
           </p>
           <button
             onClick={() => navigate('/camera')}
@@ -331,7 +339,7 @@ function DetailPage() {
               cursor: 'pointer'
             }}
           >
-            카메라로 돌아가기
+            {language === 'ko' ? '카메라로 돌아가기' : 'Back to Camera'}
           </button>
         </div>
       </div>
@@ -371,7 +379,7 @@ function DetailPage() {
         >
           ←
         </button>
-        <span style={{ fontSize: '18px', fontWeight: 'bold' }}>{building.name}</span>
+        <span style={{ fontSize: '18px', fontWeight: 'bold' }}>{language === 'ko' ? building.name : building.nameEn}</span>
       </div>
 
       {/* Content Area */}
@@ -396,7 +404,7 @@ function DetailPage() {
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', justifyContent: 'center' }}>
                 <span style={{ fontSize: '20px' }}>📸</span>
-                <span style={{ fontSize: '16px', fontWeight: 'bold', color: '#333' }}>촬영된 사진</span>
+                <span style={{ fontSize: '16px', fontWeight: 'bold', color: '#333' }}>{language === 'ko' ? '촬영된 사진' : 'Captured Photo'}</span>
               </div>
               <img
                 src={`${process.env.REACT_APP_API_URL || ''}${capturedPhoto}`}
@@ -411,10 +419,10 @@ function DetailPage() {
               />
               {analysisResult && (
                 <div style={{ marginTop: '10px', fontSize: '12px', color: '#666' }}>
-                  <div>신뢰도: {Math.round(analysisResult.confidence * 100)}%</div>
+                  <div>{language === 'ko' ? '신뢰도' : 'Confidence'}: {Math.round(analysisResult.confidence * 100)}%</div>
                   {analysisResult.location && (
                     <div style={{ marginTop: '5px' }}>
-                      촬영 시간: {new Date(analysisResult.location.capturedAt).toLocaleString('ko-KR')}
+                      {language === 'ko' ? '촬영 시간' : 'Captured Time'}: {new Date(analysisResult.location.capturedAt).toLocaleString(language === 'ko' ? 'ko-KR' : 'en-US')}
                     </div>
                   )}
                 </div>
@@ -436,7 +444,7 @@ function DetailPage() {
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
                 <span style={{ fontSize: '20px' }}>📍</span>
-                <span style={{ fontSize: '16px', fontWeight: 'bold', color: '#333' }}>촬영 위치 정보</span>
+                <span style={{ fontSize: '16px', fontWeight: 'bold', color: '#333' }}>{language === 'ko' ? '촬영 위치 정보' : 'Photo Location Info'}</span>
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -461,7 +469,7 @@ function DetailPage() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <span style={{ fontSize: '14px', flexShrink: 0, color: '#666' }}>📏</span>
                     <span style={{ fontSize: '14px', color: '#333' }}>
-                      {building.name}에서 약 {analysisResult.location.distanceToBuilding}m
+                      {language === 'ko' ? `${building.name}에서 약 ${analysisResult.location.distanceToBuilding}m` : `About ${analysisResult.location.distanceToBuilding}m from ${building.nameEn}`}
                     </span>
                   </div>
                 )}
@@ -470,7 +478,7 @@ function DetailPage() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span style={{ fontSize: '14px', flexShrink: 0, color: '#666' }}>🎯</span>
                   <span style={{ fontSize: '14px', color: '#333' }}>
-                    위치 정확도: {analysisResult.location.accuracy === 'high' ? '높음' : '보통'}
+                    {language === 'ko' ? '위치 정확도' : 'Location Accuracy'}: {analysisResult.location.accuracy === 'high' ? (language === 'ko' ? '높음' : 'High') : (language === 'ko' ? '보통' : 'Medium')}
                   </span>
                 </div>
               </div>
@@ -529,13 +537,28 @@ function DetailPage() {
             {/* Build Year */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span style={{ fontSize: '16px', flexShrink: 0 }}>📅</span>
-              <span style={{ fontSize: '14px', color: '#666' }}>{building.buildYear}</span>
+              <span style={{ fontSize: '14px', color: '#666' }}>
+                {language === 'ko' ? building.buildYear : 
+                  building.id === 'gyeonghoeru' ? '1412 (12th year of King Taejong)' : 
+                  building.buildYear.includes('1395') ? '1395 (4th year of King Taejo)' :
+                  building.buildYear.includes('조선시대') ? 'Joseon Dynasty' :
+                  building.buildYear
+                }
+              </span>
             </div>
 
             {/* Cultural Property */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span style={{ fontSize: '16px', flexShrink: 0 }}>🏆</span>
-              <span style={{ fontSize: '14px', color: '#666' }}>{building.culturalProperty}</span>
+              <span style={{ fontSize: '14px', color: '#666' }}>
+                {language === 'ko' ? building.culturalProperty :
+                  building.id === 'gyeonghoeru' ? 'National Treasure No. 224' :
+                  building.culturalProperty.includes('국보 제223호') ? 'National Treasure No. 223' :
+                  building.culturalProperty.includes('보물') ? 'Treasure' :
+                  building.culturalProperty.includes('문화재') ? 'Cultural Property' :
+                  building.culturalProperty
+                }
+              </span>
             </div>
           </div>
         </div>
@@ -551,7 +574,7 @@ function DetailPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
             <img
               src="/image/won.png"
-              alt="입장료"
+              alt={language === 'ko' ? '입장료' : 'Admission Fee'}
               style={{ width: '20px', height: '20px', flexShrink: 0 }}
               onError={(e) => {
                 e.target.style.display = 'none';
@@ -559,7 +582,7 @@ function DetailPage() {
               }}
             />
             <span style={{ display: 'none', fontSize: '20px' }}>💰</span>
-            <span style={{ fontSize: '16px', fontWeight: 'bold', color: '#333' }}>입장료</span>
+            <span style={{ fontSize: '16px', fontWeight: 'bold', color: '#333' }}>{language === 'ko' ? '입장료' : 'Admission Fee'}</span>
           </div>
           <p style={{
             margin: 0,
@@ -567,7 +590,7 @@ function DetailPage() {
             color: '#666',
             lineHeight: '1.4'
           }}>
-            경복궁 입장료: 성인 3,000원, 청소년 1,500원
+            {language === 'ko' ? '경복궁 입장료: 성인 3,000원, 청소년 1,500원' : 'Gyeongbokgung Admission: Adult 3,000 KRW, Youth 1,500 KRW'}
           </p>
         </div>
 
@@ -580,7 +603,7 @@ function DetailPage() {
           flexShrink: 0
         }}>
           <h3 style={{ margin: '0 0 20px 0', fontSize: '18px', color: '#333' }}>
-            🤖 AI 문화재 해석
+            🤖 {language === 'ko' ? 'AI 문화재 해석' : 'AI Heritage Interpretation'}
           </h3>
 
           {/* Section Selection Buttons */}
@@ -591,10 +614,10 @@ function DetailPage() {
             marginBottom: '20px'
           }}>
             {[
-              { key: 'philosophy', icon: '🏛️', title: '건축 철학', color: '#f8f9ff', borderColor: '#e0e8f0' },
-              { key: 'history', icon: '📜', title: '역사적 맥락', color: '#fff8e1', borderColor: '#ffe0b2' },
-              { key: 'culture', icon: '🎭', title: '문화적 가치', color: '#f3e5f5', borderColor: '#e1bee7' },
-              { key: 'modern', icon: '🔮', title: '현대적 해석', color: '#e8f5e8', borderColor: '#c8e6c9' }
+              { key: 'philosophy', icon: '🏛️', title: language === 'ko' ? '건축 철학' : 'Architecture Philosophy', color: '#f8f9ff', borderColor: '#e0e8f0' },
+              { key: 'history', icon: '📜', title: language === 'ko' ? '역사적 맥락' : 'Historical Context', color: '#fff8e1', borderColor: '#ffe0b2' },
+              { key: 'culture', icon: '🎭', title: language === 'ko' ? '문화적 가치' : 'Cultural Value', color: '#f3e5f5', borderColor: '#e1bee7' },
+              { key: 'modern', icon: '🔮', title: language === 'ko' ? '현대적 해석' : 'Modern Interpretation', color: '#e8f5e8', borderColor: '#c8e6c9' }
             ].map((section) => (
               <button
                 key={section.key}
@@ -629,14 +652,14 @@ function DetailPage() {
                       borderRadius: '50%',
                       animation: 'spin 1s linear infinite'
                     }}></div>
-                    <span style={{ fontSize: '12px' }}>생성 중...</span>
+                    <span style={{ fontSize: '12px' }}>{language === 'ko' ? '생성 중...' : 'Generating...'}</span>
                   </>
                 ) : (
                   <>
                     <span style={{ fontSize: '20px' }}>{section.icon}</span>
                     <span>{section.title}</span>
                     {aiContent[section.key] && (
-                      <span style={{ fontSize: '12px', color: '#28a745' }}>✅ 완료</span>
+                      <span style={{ fontSize: '12px', color: '#28a745' }}>✅ {language === 'ko' ? '완료' : 'Done'}</span>
                     )}
                   </>
                 )}
@@ -655,7 +678,7 @@ function DetailPage() {
                   border: '1px solid #e0e8f0'
                 }}>
                   <h4 style={{ margin: '0 0 10px 0', fontSize: '16px', color: '#333' }}>
-                    🏛️ 건축 철학
+                    🏛️ {language === 'ko' ? '건축 철학' : 'Architecture Philosophy'}
                   </h4>
                   <p style={{ margin: 0, fontSize: '14px', color: '#333', lineHeight: '1.6' }}>
                     {aiContent.philosophy}
@@ -671,7 +694,7 @@ function DetailPage() {
                   border: '1px solid #ffe0b2'
                 }}>
                   <h4 style={{ margin: '0 0 10px 0', fontSize: '16px', color: '#333' }}>
-                    📜 역사적 맥락
+                    📜 {language === 'ko' ? '역사적 맥락' : 'Historical Context'}
                   </h4>
                   <p style={{ margin: 0, fontSize: '14px', color: '#333', lineHeight: '1.6' }}>
                     {aiContent.history}
@@ -687,7 +710,7 @@ function DetailPage() {
                   border: '1px solid #e1bee7'
                 }}>
                   <h4 style={{ margin: '0 0 10px 0', fontSize: '16px', color: '#333' }}>
-                    🎭 문화적 가치
+                    🎭 {language === 'ko' ? '문화적 가치' : 'Cultural Value'}
                   </h4>
                   <p style={{ margin: 0, fontSize: '14px', color: '#333', lineHeight: '1.6' }}>
                     {aiContent.culture}
@@ -703,7 +726,7 @@ function DetailPage() {
                   border: '1px solid #c8e6c9'
                 }}>
                   <h4 style={{ margin: '0 0 10px 0', fontSize: '16px', color: '#333' }}>
-                    🔮 현대적 해석
+                    🔮 {language === 'ko' ? '현대적 해석' : 'Modern Interpretation'}
                   </h4>
                   <p style={{ margin: 0, fontSize: '14px', color: '#333', lineHeight: '1.6' }}>
                     {aiContent.modern}
@@ -721,8 +744,17 @@ function DetailPage() {
             }}>
               <div style={{ fontSize: '48px', marginBottom: '15px' }}>🤖</div>
               <p style={{ margin: 0, fontSize: '14px' }}>
-                위의 버튼을 클릭하여<br />
-                {building.name}에 대한 AI 해석을 확인해보세요.
+                {language === 'ko' ? (
+                  <>
+                    위의 버튼을 클릭하여<br />
+                    {building.name}에 대한 AI 해석을 확인해보세요.
+                  </>
+                ) : (
+                  <>
+                    Click the buttons above to<br />
+                    explore AI interpretation of {building.nameEn}.
+                  </>
+                )}
               </p>
             </div>
           )}
@@ -740,7 +772,7 @@ function DetailPage() {
                 gap: '6px'
               }}>
                 <span>🏛️</span>
-                <span>주요 특징</span>
+                <span>{language === 'ko' ? '주요 특징' : 'Key Features'}</span>
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                 {building.features.map((feature, index) => (
@@ -784,7 +816,7 @@ function DetailPage() {
               cursor: 'pointer'
             }}
           >
-            📷 사진 촬영하기
+            📷 {language === 'ko' ? '사진 촬영하기' : 'Take Photo'}
           </button>
           <button
             onClick={() => {
@@ -803,7 +835,7 @@ function DetailPage() {
               cursor: 'pointer'
             }}
           >
-            🏛️ 철학 보기
+            🏛️ {language === 'ko' ? '철학 보기' : 'View Philosophy'}
           </button>
           <button
             onClick={() => {
@@ -844,7 +876,7 @@ function DetailPage() {
             className="nav-icon"
             style={{ backgroundImage: 'url(/image/rubber-stamp.png)' }}
           ></div>
-          <span>스탬프</span>
+          <span style={{ fontSize: '12px', whiteSpace: 'nowrap' }}>{t.stamp}</span>
         </div>
         <div
           className="nav-item"
@@ -855,7 +887,7 @@ function DetailPage() {
             className="nav-icon"
             style={{ backgroundImage: 'url(/image/nav_camera.png)' }}
           ></div>
-          <span>사진찍기</span>
+          <span style={{ fontSize: '11px', whiteSpace: 'nowrap' }}>{t.camera}</span>
         </div>
         <div
           className="nav-item"
@@ -866,7 +898,7 @@ function DetailPage() {
             className="nav-icon"
             style={{ backgroundImage: 'url(/image/settings.png)' }}
           ></div>
-          <span>설정</span>
+          <span style={{ fontSize: '12px', whiteSpace: 'nowrap' }}>{t.settings}</span>
         </div>
       </div>
 

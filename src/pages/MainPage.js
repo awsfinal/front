@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { translations, getLanguage, setLanguage as saveLanguage } from '../utils/translations';
 
 // CSS 애니메이션을 위한 스타일 추가
 const spinKeyframes = `
@@ -81,6 +82,10 @@ function MainPage() {
   const [isAndroid, setIsAndroid] = useState(false);
   const kalmanFilterRef = useRef(null);
   const [gpsInterval, setGpsInterval] = useState(null);
+  const [language, setLanguage] = useState('ko');
+  const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
+  
+  const t = translations[language];
   
   const getKalmanFilter = () => {
     if (!kalmanFilterRef.current) {
@@ -94,6 +99,10 @@ function MainPage() {
     const userAgent = navigator.userAgent;
     setIsIOS(/iPhone|iPad|iPod/i.test(userAgent));
     setIsAndroid(/Android/i.test(userAgent));
+    
+    // 언어 설정 가져오기
+    const savedLanguage = getLanguage();
+    setLanguage(savedLanguage);
     
     // GPS 수집 시작
     startGPSCollection();
@@ -266,34 +275,34 @@ function MainPage() {
     return url;
   };
 
-  // 서울 관광지 데이터
+  // 서울 관광지 데이터 (다국어 지원)
   const allHeritageData = [
-    { id: 'gangsong', name: '간송옛집', lat: 37.5756500, lng: 126.9990370, address: '서울시 성북구 성북로 102-11', image: getS3ImageUrl('간송옛집') },
-    { id: 'gyeongbokgung', name: '경복궁', lat: 37.5796010, lng: 126.9770350, address: '서울시 종로구 사직로 161', image: getS3ImageUrl('경복궁') },
-    { id: 'gyeonghuigung', name: '경희궁', lat: 37.5715050, lng: 126.9694020, address: '서울시 종로구 새문안로 45', image: getS3ImageUrl('경희궁') },
-    { id: 'gwanghwamun', name: '광화문', lat: 37.5759830, lng: 126.9768110, address: '서울시 종로구 세종대로 172', image: getS3ImageUrl('광화문') },
-    { id: 'national_museum', name: '국립중앙박물관', lat: 37.5241130, lng: 126.9802590, address: '서울시 용산구 서빙고로 137', image: getS3ImageUrl('국립중앙박물관') },
-    { id: 'namsan_tower', name: '남산타워', lat: 37.5512090, lng: 126.9882280, address: '서울시 용산구 남산공원길 105', image: getS3ImageUrl('남산타워') },
-    { id: 'deoksugung', name: '덕수궁', lat: 37.5658340, lng: 126.9751240, address: '서울시 중구 세종대로 99', image: getS3ImageUrl('덕수궁') },
-    { id: 'ttukseom', name: '뚝섬', lat: 37.5309820, lng: 127.0709640, address: '서울시 성동구 자동차시장길 49', image: getS3ImageUrl('뚝섬') },
-    { id: 'lotte_tower', name: '롯데타워', lat: 37.5125910, lng: 127.1025490, address: '서울시 송파구 올림픽로 300', image: getS3ImageUrl('롯데타워') },
-    { id: 'myeongdong_cathedral', name: '명동성당', lat: 37.5636920, lng: 126.9865340, address: '서울시 중구 명동길 74', image: getS3ImageUrl('명동성당') },
-    { id: 'banpo_island', name: '새빛둥둥섬', lat: 37.5258220, lng: 127.0724620, address: '서울시 서초구 신반포로 11', image: getS3ImageUrl('새빛둥둥섬') },
-    { id: 'seodaemun_park', name: '서대문독립공원', lat: 37.5741140, lng: 126.9586390, address: '서울시 서대문구 통일로 251', image: getS3ImageUrl('서대문독립공원') },
-    { id: 'seodaemun_prison', name: '서대문형무소', lat: 37.5735460, lng: 126.9575230, address: '서울시 서대문구 통일로 251', image: getS3ImageUrl('서대문형무소') },
-    { id: 'seoul_forest', name: '서울숲', lat: 37.5442890, lng: 127.0370130, address: '서울시 성동구 뚝섬로 273', image: getS3ImageUrl('서울숲') },
-    { id: 'seoul_station', name: '서울역', lat: 37.5553620, lng: 126.9706420, address: '서울시 중구 한강대로 405', image: getS3ImageUrl('서울역') },
-    { id: 'seokchon_lake', name: '석촌호수', lat: 37.5098140, lng: 127.1033380, address: '서울시 송파구 잠실동 47', image: getS3ImageUrl('석촌호수') },
-    { id: 'childrens_grand_park', name: '어린이대공원', lat: 37.5481300, lng: 127.0814060, address: '서울시 광진구 능동로 216', image: getS3ImageUrl('어린이대공원') },
-    { id: 'yeonsan_tomb', name: '연산군묘', lat: 37.6191770, lng: 127.0647980, address: '서울시 도봉구 방학동 산1-1', image: getS3ImageUrl('연산군묘') },
-    { id: 'arts_center', name: '예술의전당', lat: 37.4790540, lng: 127.0118640, address: '서울시 서초구 남부순환로 2406', image: getS3ImageUrl('예술의전당') },
-    { id: 'olympic_park', name: '올림픽공원', lat: 37.5199970, lng: 127.1244360, address: '서울시 송파구 올림픽로 424', image: getS3ImageUrl('올림픽공원') },
-    { id: 'war_memorial', name: '전쟁기념관', lat: 37.5346020, lng: 126.9779640, address: '서울시 용산구 이태원로 29', image: getS3ImageUrl('전쟁기념관') },
-    { id: 'jongmyo', name: '종묘', lat: 37.5747710, lng: 126.9942700, address: '서울시 종로구 종로 157', image: getS3ImageUrl('종묘') },
-    { id: 'changgyeonggung', name: '창경궁', lat: 37.5795730, lng: 126.9954760, address: '서울시 종로구 창경궁로 185', image: getS3ImageUrl('창경궁') },
-    { id: 'changnyeong_palace', name: '창녕위궁재사', lat: 37.5749800, lng: 126.9863500, address: '서울시 종로구 인사동길 30-1', image: getS3ImageUrl('창녕위궁재사') },
-    { id: 'changdeokgung', name: '창덕궁', lat: 37.5797220, lng: 126.9910140, address: '서울시 종로구 율곡로 99', image: getS3ImageUrl('창덕궁') },
-    { id: 'national_cemetery', name: '현충원', lat: 37.5020980, lng: 126.9752550, address: '서울시 동작구 현충로 210', image: getS3ImageUrl('현충원') }
+    { id: 'gangsong', name: '간송옛집', nameEn: 'Gansong Art Museum', lat: 37.5756500, lng: 126.9990370, address: '서울시 성북구 성북로 102-11', addressEn: 'Seoul, Seongbuk-gu, Seongbuk-ro 102-11', image: getS3ImageUrl('간송옛집') },
+    { id: 'gyeongbokgung', name: '경복궁', nameEn: 'Gyeongbokgung Palace', lat: 37.5796010, lng: 126.9770350, address: '서울시 종로구 사직로 161', addressEn: 'Seoul, Jongno-gu, Sajik-ro 161', image: getS3ImageUrl('경복궁') },
+    { id: 'gyeonghuigung', name: '경희궁', nameEn: 'Gyeonghuigung Palace', lat: 37.5715050, lng: 126.9694020, address: '서울시 종로구 새문안로 45', addressEn: 'Seoul, Jongno-gu, Saemunan-ro 45', image: getS3ImageUrl('경희궁') },
+    { id: 'gwanghwamun', name: '광화문', nameEn: 'Gwanghwamun Gate', lat: 37.5759830, lng: 126.9768110, address: '서울시 종로구 세종대로 172', addressEn: 'Seoul, Jongno-gu, Sejong-daero 172', image: getS3ImageUrl('광화문') },
+    { id: 'national_museum', name: '국립중앙박물관', nameEn: 'National Museum of Korea', lat: 37.5241130, lng: 126.9802590, address: '서울시 용산구 서빙고로 137', addressEn: 'Seoul, Yongsan-gu, Seobinggo-ro 137', image: getS3ImageUrl('국립중앙박물관') },
+    { id: 'namsan_tower', name: '남산타워', nameEn: 'N Seoul Tower', lat: 37.5512090, lng: 126.9882280, address: '서울시 용산구 남산공원길 105', addressEn: 'Seoul, Yongsan-gu, Namsan Park-gil 105', image: getS3ImageUrl('남산타워') },
+    { id: 'deoksugung', name: '덕수궁', nameEn: 'Deoksugung Palace', lat: 37.5658340, lng: 126.9751240, address: '서울시 중구 세종대로 99', addressEn: 'Seoul, Jung-gu, Sejong-daero 99', image: getS3ImageUrl('덕수궁') },
+    { id: 'ttukseom', name: '뚝섬', nameEn: 'Ttukseom', lat: 37.5309820, lng: 127.0709640, address: '서울시 성동구 자동차시장길 49', addressEn: 'Seoul, Seongdong-gu, Jadongcha Market-gil 49', image: getS3ImageUrl('뚝섬') },
+    { id: 'lotte_tower', name: '롯데타워', nameEn: 'Lotte World Tower', lat: 37.5125910, lng: 127.1025490, address: '서울시 송파구 올림픽로 300', addressEn: 'Seoul, Songpa-gu, Olympic-ro 300', image: getS3ImageUrl('롯데타워') },
+    { id: 'myeongdong_cathedral', name: '명동성당', nameEn: 'Myeongdong Cathedral', lat: 37.5636920, lng: 126.9865340, address: '서울시 중구 명동길 74', addressEn: 'Seoul, Jung-gu, Myeongdong-gil 74', image: getS3ImageUrl('명동성당') },
+    { id: 'banpo_island', name: '새빛둥둥섬', nameEn: 'Saevit Floating Island', lat: 37.5258220, lng: 127.0724620, address: '서울시 서초구 신반포로 11', addressEn: 'Seoul, Seocho-gu, Sinbanpo-ro 11', image: getS3ImageUrl('새빛둥둥섬') },
+    { id: 'seodaemun_park', name: '서대문독립공원', nameEn: 'Seodaemun Independence Park', lat: 37.5741140, lng: 126.9586390, address: '서울시 서대문구 통일로 251', addressEn: 'Seoul, Seodaemun-gu, Tongil-ro 251', image: getS3ImageUrl('서대문독립공원') },
+    { id: 'seodaemun_prison', name: '서대문형무소', nameEn: 'Seodaemun Prison History Hall', lat: 37.5735460, lng: 126.9575230, address: '서울시 서대문구 통일로 251', addressEn: 'Seoul, Seodaemun-gu, Tongil-ro 251', image: getS3ImageUrl('서대문형무소') },
+    { id: 'seoul_forest', name: '서울숲', nameEn: 'Seoul Forest', lat: 37.5442890, lng: 127.0370130, address: '서울시 성동구 뚝섬로 273', addressEn: 'Seoul, Seongdong-gu, Ttukseom-ro 273', image: getS3ImageUrl('서울숲') },
+    { id: 'seoul_station', name: '서울역', nameEn: 'Seoul Station', lat: 37.5553620, lng: 126.9706420, address: '서울시 중구 한강대로 405', addressEn: 'Seoul, Jung-gu, Hangang-daero 405', image: getS3ImageUrl('서울역') },
+    { id: 'seokchon_lake', name: '석촌호수', nameEn: 'Seokchon Lake', lat: 37.5098140, lng: 127.1033380, address: '서울시 송파구 잠실동 47', addressEn: 'Seoul, Songpa-gu, Jamsil-dong 47', image: getS3ImageUrl('석촌호수') },
+    { id: 'childrens_grand_park', name: '어린이대공원', nameEn: 'Seoul Children\'s Grand Park', lat: 37.5481300, lng: 127.0814060, address: '서울시 광진구 능동로 216', addressEn: 'Seoul, Gwangjin-gu, Neungdong-ro 216', image: getS3ImageUrl('어린이대공원') },
+    { id: 'yeonsan_tomb', name: '연산군묘', nameEn: 'Tomb of Prince Yeonsan', lat: 37.6191770, lng: 127.0647980, address: '서울시 도봉구 방학동 산1-1', addressEn: 'Seoul, Dobong-gu, Banghak-dong San 1-1', image: getS3ImageUrl('연산군묘') },
+    { id: 'arts_center', name: '예술의전당', nameEn: 'Seoul Arts Center', lat: 37.4790540, lng: 127.0118640, address: '서울시 서초구 남부순환로 2406', addressEn: 'Seoul, Seocho-gu, Nambu Sunhwan-ro 2406', image: getS3ImageUrl('예술의전당') },
+    { id: 'olympic_park', name: '올림픽공원', nameEn: 'Olympic Park', lat: 37.5199970, lng: 127.1244360, address: '서울시 송파구 올림픽로 424', addressEn: 'Seoul, Songpa-gu, Olympic-ro 424', image: getS3ImageUrl('올림픽공원') },
+    { id: 'war_memorial', name: '전쟁기념관', nameEn: 'War Memorial of Korea', lat: 37.5346020, lng: 126.9779640, address: '서울시 용산구 이태원로 29', addressEn: 'Seoul, Yongsan-gu, Itaewon-ro 29', image: getS3ImageUrl('전쟁기념관') },
+    { id: 'jongmyo', name: '종묘', nameEn: 'Jongmyo Shrine', lat: 37.5747710, lng: 126.9942700, address: '서울시 종로구 종로 157', addressEn: 'Seoul, Jongno-gu, Jongno 157', image: getS3ImageUrl('종묘') },
+    { id: 'changgyeonggung', name: '창경궁', nameEn: 'Changgyeonggung Palace', lat: 37.5795730, lng: 126.9954760, address: '서울시 종로구 창경궁로 185', addressEn: 'Seoul, Jongno-gu, Changgyeonggung-ro 185', image: getS3ImageUrl('창경궁') },
+    { id: 'changnyeong_palace', name: '창녕위궁재사', nameEn: 'Changnyeong Palace Shrine', lat: 37.5749800, lng: 126.9863500, address: '서울시 종로구 인사동길 30-1', addressEn: 'Seoul, Jongno-gu, Insadong-gil 30-1', image: getS3ImageUrl('창녕위궁재사') },
+    { id: 'changdeokgung', name: '창덕궁', nameEn: 'Changdeokgung Palace', lat: 37.5797220, lng: 126.9910140, address: '서울시 종로구 율곡로 99', addressEn: 'Seoul, Jongno-gu, Yulgok-ro 99', image: getS3ImageUrl('창덕궁') },
+    { id: 'national_cemetery', name: '현충원', nameEn: 'Seoul National Cemetery', lat: 37.5020980, lng: 126.9752550, address: '서울시 동작구 현충로 210', addressEn: 'Seoul, Dongjak-gu, Hyeonchung-ro 210', image: getS3ImageUrl('현충원') }
   ];
 
   // 두 좌표 간의 거리 계산 (km 단위)
@@ -383,10 +392,10 @@ function MainPage() {
               margin: '0 auto 15px'
             }}></div>
             <div style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '5px' }}>
-              로딩중
+              {t.loading}
             </div>
             <div style={{ fontSize: '12px', color: '#666' }}>
-              GPS 정보를 처리하고 있습니다...
+              {t.gpsProcessing}
             </div>
           </div>
         </div>
@@ -431,15 +440,70 @@ function MainPage() {
             찍지오
           </div>
         </div>
-        <div style={{ 
-          fontSize: '14px', 
-          color: '#007AFF',
-          cursor: 'pointer',
-          padding: '5px 10px',
-          borderRadius: '15px',
-          border: '1px solid #007AFF'
-        }}>
-          🌐 한국어
+        <div style={{ position: 'relative' }}>
+          <div 
+            style={{ 
+              fontSize: '14px', 
+              color: '#007AFF',
+              cursor: 'pointer',
+              padding: '5px 10px',
+              borderRadius: '15px',
+              border: '1px solid #007AFF',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+              minWidth: '80px',
+              justifyContent: 'center'
+            }}
+            onClick={() => setShowLanguageDropdown(!showLanguageDropdown)}
+          >
+            🌐 {t.language}
+          </div>
+          {showLanguageDropdown && (
+            <div style={{
+              position: 'absolute',
+              top: '100%',
+              right: 0,
+              backgroundColor: 'white',
+              border: '1px solid #007AFF',
+              borderRadius: '8px',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+              zIndex: 1000,
+              minWidth: '100px'
+            }}>
+              <div 
+                style={{
+                  padding: '8px 12px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  borderBottom: '1px solid #f0f0f0',
+                  backgroundColor: language === 'ko' ? '#f0f8ff' : 'white'
+                }}
+                onClick={() => {
+                  setLanguage('ko');
+                  saveLanguage('ko');
+                  setShowLanguageDropdown(false);
+                }}
+              >
+                🇰🇷 한국어
+              </div>
+              <div 
+                style={{
+                  padding: '8px 12px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  backgroundColor: language === 'en' ? '#f0f8ff' : 'white'
+                }}
+                onClick={() => {
+                  setLanguage('en');
+                  saveLanguage('en');
+                  setShowLanguageDropdown(false);
+                }}
+              >
+                🇺🇸 English
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -522,16 +586,16 @@ function MainPage() {
             flexShrink: 0
           }}>
             <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#007AFF', marginBottom: '5px' }}>
-              📍 GPS 좌표 (칼만필터 적용)
+              📍 {t.gpsCoordinates}
             </div>
             <div style={{ fontSize: '12px', color: '#333' }}>
-              위도: {currentGPS.latitude.toFixed(7)}
+              {t.latitude}: {currentGPS.latitude.toFixed(7)}
             </div>
             <div style={{ fontSize: '12px', color: '#333' }}>
-              경도: {currentGPS.longitude.toFixed(7)}
+              {t.longitude}: {currentGPS.longitude.toFixed(7)}
             </div>
             <div style={{ fontSize: '12px', color: '#666', marginTop: '3px' }}>
-              정확도: {Math.round(currentGPS.accuracy)}m | 측정: {currentGPS.measurementCount}번 | 실시간 업데이트
+              {t.accuracy}: {Math.round(currentGPS.accuracy)}m | {t.measurement}: {currentGPS.measurementCount}{t.times} | {t.realTimeUpdate}
             </div>
           </div>
         )}
@@ -556,7 +620,7 @@ function MainPage() {
             }}
           >
             <div style={{ fontSize: '18px', marginBottom: '5px' }}>❓</div>
-            <div style={{ fontSize: '11px' }}>Help</div>
+            <div style={{ fontSize: '11px', whiteSpace: 'nowrap' }}>{t.help}</div>
           </div>
           <div 
             className="card" 
@@ -572,7 +636,7 @@ function MainPage() {
             onClick={() => navigate('/toilet')}
           >
             <div style={{ fontSize: '18px', marginBottom: '5px' }}>🚻</div>
-            <div style={{ fontSize: '11px' }}>공용화장실</div>
+            <div style={{ fontSize: '10px', whiteSpace: 'nowrap', textAlign: 'center', lineHeight: '1.2' }}>{t.publicToilet}</div>
           </div>
           <div 
             className="card" 
@@ -587,7 +651,7 @@ function MainPage() {
             }}
           >
             <div style={{ fontSize: '18px', marginBottom: '5px' }}>💊</div>
-            <div style={{ fontSize: '11px' }}>약국</div>
+            <div style={{ fontSize: '11px', whiteSpace: 'nowrap' }}>{t.pharmacy}</div>
           </div>
           <div 
             className="card" 
@@ -602,14 +666,14 @@ function MainPage() {
             }}
           >
             <div style={{ fontSize: '18px', marginBottom: '5px' }}>💬</div>
-            <div style={{ fontSize: '11px' }}>커뮤니티</div>
+            <div style={{ fontSize: '10px', whiteSpace: 'nowrap' }}>{t.community}</div>
           </div>
         </div>
 
         {/* Tourism News */}
         <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
           <h2 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '20px', margin: '0 0 20px 0' }}>
-            관광지 소식
+            {t.tourismNews}
           </h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', paddingBottom: '20px' }}>
             {heritageData.map(heritage => (
@@ -682,21 +746,21 @@ function MainPage() {
                     marginBottom: '3px',
                     color: '#333'
                   }}>
-                    {heritage.name}
+                    {language === 'ko' ? heritage.name : heritage.nameEn}
                   </div>
                   <div style={{ 
                     fontSize: '12px', 
                     color: '#666',
                     marginBottom: '3px'
                   }}>
-                    📍 {heritage.address}
+                    📍 {language === 'ko' ? heritage.address : heritage.addressEn}
                   </div>
                   <div style={{ 
                     fontSize: '12px', 
                     color: '#007AFF',
                     fontWeight: '500'
                   }}>
-                    현재 위치에서 {heritage.formattedDistance || '계산 중...'}
+                    {t.currentLocation} {heritage.formattedDistance || (language === 'ko' ? '계산 중...' : 'Calculating...')}
                   </div>
                 </div>
               </div>
@@ -716,13 +780,13 @@ function MainPage() {
             className="nav-icon" 
             style={{ backgroundImage: 'url(/image/rubber-stamp.png)' }}
           ></div>
-          <span>스탬프</span>
+          <span style={{ fontSize: '12px', whiteSpace: 'nowrap' }}>{t.stamp}</span>
         </div>
         <div 
           className="nav-item"
           onClick={() => {
             if (!isGPSReady) {
-              alert('로딩중입니다. 잠시만 기다려주세요.');
+              alert(t.loadingWait);
               return;
             }
             navigate('/camera');
@@ -733,7 +797,7 @@ function MainPage() {
             className="nav-icon" 
             style={{ backgroundImage: 'url(/image/nav_camera.png)' }}
           ></div>
-          <span>사진찍기</span>
+          <span style={{ fontSize: '11px', whiteSpace: 'nowrap' }}>{t.camera}</span>
         </div>
         <div 
           className="nav-item"
@@ -744,7 +808,7 @@ function MainPage() {
             className="nav-icon" 
             style={{ backgroundImage: 'url(/image/settings.png)' }}
           ></div>
-          <span>설정</span>
+          <span style={{ fontSize: '12px', whiteSpace: 'nowrap' }}>{t.settings}</span>
         </div>
       </div>
     </div>
