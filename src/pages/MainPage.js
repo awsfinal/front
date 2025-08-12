@@ -277,6 +277,7 @@ function MainPage() {
 
   // 서울 관광지 데이터 (다국어 지원)
   const allHeritageData = [
+    { id: 'bukchon', name: '북촌한옥마을', nameEn: 'Bukchon Hanok Village', lat: 37.583358, lng: 126.983343, address: '서울시 종로구 북촌로 66', addressEn: 'Seoul, Jongno-gu, Bukchon-ro 66', image: getS3ImageUrl('북촌한옥마을') },
     { id: 'gangsong', name: '간송옛집', nameEn: 'Gansong Art Museum', lat: 37.5756500, lng: 126.9990370, address: '서울시 성북구 성북로 102-11', addressEn: 'Seoul, Seongbuk-gu, Seongbuk-ro 102-11', image: getS3ImageUrl('간송옛집') },
     { id: 'gyeongbokgung', name: '경복궁', nameEn: 'Gyeongbokgung Palace', lat: 37.5796010, lng: 126.9770350, address: '서울시 종로구 사직로 161', addressEn: 'Seoul, Jongno-gu, Sajik-ro 161', image: getS3ImageUrl('경복궁') },
     { id: 'gyeonghuigung', name: '경희궁', nameEn: 'Gyeonghuigung Palace', lat: 37.5715050, lng: 126.9694020, address: '서울시 종로구 새문안로 45', addressEn: 'Seoul, Jongno-gu, Saemunan-ro 45', image: getS3ImageUrl('경희궁') },
