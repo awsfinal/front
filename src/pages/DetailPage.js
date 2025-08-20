@@ -188,14 +188,32 @@ function DetailPage() {
     }
   };
 
+  // 백엔드 ID 매핑 함수 (백엔드에 없는 건물들을 기존 건물로 매핑)
+  const mapToBackendId = (buildingId) => {
+    const idMapping = {
+      // 폴리곤에만 있고 백엔드에 없는 건물들을 기존 건물로 매핑
+      'munjeongdang': 'gyeonghoeru',     // 문정당 → 경회루
+      'heumgyeonggak': 'geunjeongjeon',  // 흠경각 → 근정전
+      'hamwonjeon': 'sajeongjeon',       // 함원전 → 사정전
+      'eungjidang': 'gangnyeongjeon',    // 응지당 → 강녕전
+      'gyeongseongjeon': 'gyotaejeon',   // 경성전 → 교태전
+      // 필요에 따라 더 추가...
+    };
+    
+    return idMapping[buildingId] || buildingId;
+  };
+
   // AI 설명 가져오기 함수 (기본 설명용)
   const fetchAiDescription = async (buildingData) => {
     try {
       setAiLoading(true);
       console.log('🤖 AI 설명 요청:', buildingData.name);
 
-      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5003';
-      const response = await fetch(`${apiUrl}/api/philosophy/${buildingData.id}`, {
+      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5005';
+      const backendId = mapToBackendId(buildingData.id);
+      console.log('🔄 ID 매핑:', buildingData.id, '→', backendId);
+      
+      const response = await fetch(`${apiUrl}/api/philosophy/${backendId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -244,7 +262,7 @@ function DetailPage() {
       setAiSectionLoading(prev => ({ ...prev, [sectionType]: true }));
       console.log(`🤖 AI ${sectionType} 생성 시작:`, building.name);
 
-      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5003';
+      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5005';
       const response = await fetch(`${apiUrl}/api/philosophy/${building.id}`, {
         method: 'POST',
         headers: {

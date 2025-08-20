@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { translations, getLanguage, setLanguage as saveLanguage } from '../utils/translations';
+import { findNearestSubwayStation, formatDistance as formatSubwayDistance, lineColors } from '../data/subwayStations';
 
 // CSS 애니메이션을 위한 스타일 추가
 const spinKeyframes = `
@@ -80,6 +81,7 @@ function MainPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isIOS, setIsIOS] = useState(false);
   const [isAndroid, setIsAndroid] = useState(false);
+  const [nearbyTouristSpots, setNearbyTouristSpots] = useState([]);
   const kalmanFilterRef = useRef(null);
   const [gpsInterval, setGpsInterval] = useState(null);
   const [language, setLanguage] = useState('ko');
@@ -112,6 +114,14 @@ function MainPage() {
       stopContinuousGPSTracking();
     };
   }, []);
+
+  // GPS 업데이트 시 관광지 API 호출
+  useEffect(() => {
+    if (currentGPS && isGPSReady) {
+      console.log('🔄 GPS 업데이트됨, 관광지 API 호출');
+      fetchNearbyTouristSpots(currentGPS.latitude, currentGPS.longitude);
+    }
+  }, [currentGPS, isGPSReady]);
   
   const startGPSCollection = async () => {
     if (!navigator.geolocation) {
@@ -234,17 +244,19 @@ function MainPage() {
 
   const sendGPSToBackend = async (gpsData) => {
     try {
-      const possibleIPs = [
-        '192.168.0.100',
-        '192.168.1.100',
-        '10.0.0.100',
-        window.location.hostname,
-        'localhost',
-        '127.0.0.1'
+      // 동적 API URL 생성
+      // ngrok 환경에서는 GPS API 호출 비활성화 (503 오류 방지)
+      if (window.location.hostname.includes('ngrok') || window.location.hostname.includes('tunnel')) {
+        console.log('🚫 ngrok 환경에서는 GPS API 호출을 건너뜁니다.');
+        return null;
+      }
+
+      const possibleURLs = [
+        'http://localhost:5006/api/gps',
+        'http://127.0.0.1:5006/api/gps'
       ];
       
-      for (const ip of possibleIPs) {
-        const url = `http://${ip}:5003/api/gps`;
+      for (const url of possibleURLs) {
         try {
           const response = await fetch(url, {
             method: 'POST',
@@ -328,27 +340,56 @@ function MainPage() {
     }
   };
 
-  // GPS 기반 가까운 관광지 계산
+  // 관광공사 API에서 가까운 관광지 가져오기
+  const fetchNearbyTouristSpots = async (latitude, longitude) => {
+    try {
+      console.log('🏛️ 관광공사 API로 가까운 관광지 조회 시작');
+      
+      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5007';
+      const response = await fetch(`${apiUrl}/api/tourist-spots/nearby?latitude=${latitude}&longitude=${longitude}&limit=3`);
+      
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success && result.data) {
+          console.log(`✅ 관광공사 API 응답: ${result.data.length}개 관광지`);
+          
+          // 관광지 데이터를 기존 형식에 맞게 변환
+          const formattedSpots = result.data.map(spot => ({
+            id: spot.contentId,
+            name: spot.title,
+            nameEn: spot.title, // 영문명이 없으면 한글명 사용
+            lat: parseFloat(spot.mapY),
+            lng: parseFloat(spot.mapX),
+            address: spot.addr1 || '주소 정보 없음',
+            addressEn: spot.addr1 || 'No address available',
+            image: spot.firstImage || '/image/default-heritage.jpg',
+            distance: spot.distance,
+            formattedDistance: formatDistance(spot.distance),
+            isApiData: true // API에서 가져온 데이터임을 표시
+          }));
+          
+          setNearbyTouristSpots(formattedSpots);
+          return formattedSpots;
+        }
+      }
+      
+      console.log('❌ 관광공사 API 호출 실패, 기본 데이터 사용');
+      return null;
+    } catch (error) {
+      console.error('❌ 관광공사 API 오류:', error);
+      return null;
+    }
+  };
+
+  // GPS 기반 가까운 관광지 계산 (관광공사 API만 사용)
   const getNearbyHeritage = () => {
-    if (!currentGPS) return allHeritageData.slice(0, 3);
+    // 관광공사 API 데이터만 사용
+    if (nearbyTouristSpots.length > 0) {
+      return nearbyTouristSpots.slice(0, 3);
+    }
 
-    const heritageWithDistance = allHeritageData.map(heritage => {
-      const distance = calculateDistance(
-        currentGPS.latitude,
-        currentGPS.longitude,
-        heritage.lat,
-        heritage.lng
-      );
-      return {
-        ...heritage,
-        distance: distance,
-        formattedDistance: formatDistance(distance)
-      };
-    });
-
-    return heritageWithDistance
-      .sort((a, b) => a.distance - b.distance)
-      .slice(0, 3);
+    // API 데이터가 없으면 빈 배열 반환 (기존 하드코딩 데이터 사용 안함)
+    return [];
   };
 
   const heritageData = getNearbyHeritage();
@@ -664,6 +705,7 @@ function MainPage() {
               borderRadius: '10px',
               boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
             }}
+            onClick={() => navigate('/community')}
           >
             <div style={{ fontSize: '18px', marginBottom: '5px' }}>💬</div>
             <div style={{ fontSize: '10px', whiteSpace: 'nowrap' }}>{t.community}</div>
@@ -688,7 +730,18 @@ function MainPage() {
                   gap: '12px',
                   cursor: 'pointer'
                 }}
-                onClick={() => navigate(`/detail/${heritage.id}`)}
+                onClick={() => {
+                  // API에서 가져온 관광지 데이터인지 확인
+                  if (heritage.isApiData) {
+                    // API 데이터인 경우 새로운 상세 페이지로 이동
+                    console.log('🏛️ API 관광지 클릭:', heritage.name, heritage.id);
+                    navigate(`/tourist-spot/${heritage.id}`);
+                  } else {
+                    // 기존 하드코딩된 데이터인 경우 기존 상세 페이지로 이동
+                    console.log('🏛️ 기존 관광지 클릭:', heritage.name, heritage.id);
+                    navigate(`/detail/${heritage.id}`);
+                  }
+                }}
               >
                 {/* Left Image */}
                 <div style={{ flexShrink: 0 }}>
@@ -761,6 +814,17 @@ function MainPage() {
                     fontWeight: '500'
                   }}>
                     {t.currentLocation} {heritage.formattedDistance || (language === 'ko' ? '계산 중...' : 'Calculating...')}
+                    {currentGPS && (() => {
+                      const nearestStation = findNearestSubwayStation(currentGPS.latitude, currentGPS.longitude, 1)[0];
+                      if (nearestStation) {
+                        return (
+                          <span style={{ marginLeft: '8px' }}>
+                            • 🚇 {language === 'ko' ? nearestStation.name : nearestStation.nameEn} {formatSubwayDistance(nearestStation.distance)}
+                          </span>
+                        );
+                      }
+                      return null;
+                    })()}
                   </div>
                 </div>
               </div>

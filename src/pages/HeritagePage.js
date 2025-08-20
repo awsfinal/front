@@ -20,7 +20,7 @@ function HeritagePage() {
       setLoading(true);
       
       // 백엔드 API에서 문화재 정보 가져오기
-      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5003';
+      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5005';
       const response = await fetch(`${apiUrl}/api/building/${id}`);
       
       if (response.ok) {
@@ -48,7 +48,7 @@ function HeritagePage() {
       setAiLoading(prev => ({ ...prev, [sectionType]: true }));
       console.log(`🤖 AI ${sectionType} 생성 시작:`, heritage.name);
 
-      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5003';
+      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5005';
       const response = await fetch(`${apiUrl}/api/philosophy/${heritage.id}`, {
         method: 'POST',
         headers: {

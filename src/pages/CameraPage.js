@@ -4,6 +4,7 @@ import { translations, getLanguage } from '../utils/translations';
 
 // 분리된 유틸리티 및 훅 import
 import { gyeongbokgungBuildings, getEnglishName, getBuildYear, getCulturalProperty, getFeatures, getDetailedDescription, isInGyeongbokgung } from '../utils/buildingData';
+import { buildingPolygons } from '../utils/buildingPolygons';
 import { calculateDistance, getCompassDirection } from '../utils/gpsUtils';
 import { findBuildingFromMap, findClosestBuildingFallback } from '../utils/buildingSearch';
 import { useCompass } from '../hooks/useCompass';
@@ -28,7 +29,7 @@ function CameraPage() {
   const navigate = useNavigate();
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
-  
+
   // 상태 관리
   const [stream, setStream] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -42,9 +43,13 @@ function CameraPage() {
   const [isIOS, setIsIOS] = useState(false);
   const [isAndroid, setIsAndroid] = useState(false);
   const [language, setLanguage] = useState('ko');
-  
+
+  // 실시간 건물 인식 상태
+  const [nearbyBuildings, setNearbyBuildings] = useState([]);
+  const [closestBuilding, setClosestBuilding] = useState(null);
+
   const t = translations[language];
-  
+
 
   // 나침반 센서 초기화 (커스텀 훅 사용)
   useCompass(isIOS, isAndroid, setCurrentHeading);
@@ -54,14 +59,14 @@ function CameraPage() {
     const userAgent = navigator.userAgent;
     setIsIOS(/iPhone|iPad|iPod/i.test(userAgent));
     setIsAndroid(/Android/i.test(userAgent));
-    
+
     // 언어 설정 가져오기
     const savedLanguage = getLanguage();
     setLanguage(savedLanguage);
 
     // 카메라 시작
     startCamera();
-    
+
     // MainPage에서 GPS 데이터 가져오기
     const savedGPS = localStorage.getItem('mainPageGPS');
     if (savedGPS) {
@@ -69,6 +74,9 @@ function CameraPage() {
       setCurrentGPS(gpsData);
       setIsInitialGPSComplete(true);
       setLocationStatus(''); // 상태 메시지 숨김
+
+      // 초기 건물 인식 실행
+      checkNearbyBuildings(gpsData);
     } else {
       setLocationStatus(`❌ ${t.gpsDataMissing}`);
     }
@@ -122,38 +130,114 @@ function CameraPage() {
     }
   };
 
+  // 폴리곤 내부 체크 함수
+  const isPointInPolygon = (lat, lng, polygon) => {
+    const { nw, se } = polygon;
+    const [nwLat, nwLng] = nw;
+    const [seLat, seLng] = se;
+
+    // 사각형 영역 내부 체크
+    return lat <= nwLat && lat >= seLat && lng >= nwLng && lng <= seLng;
+  };
+
+  // 실시간 건물 인식 함수 (폴리곤 기반)
+  const checkNearbyBuildings = (gpsData) => {
+    if (!gpsData || !gpsData.latitude || !gpsData.longitude) return;
+
+    const buildings = [];
+    let closest = null;
+    let minDistance = Infinity;
+    let insideBuilding = null;
+
+    // 1. 먼저 폴리곤 내부에 있는 건물 찾기
+    buildingPolygons.forEach(polygon => {
+      if (isPointInPolygon(gpsData.latitude, gpsData.longitude, polygon)) {
+        console.log(`🎯 폴리곤 내부 감지: ${polygon.name}`);
+        insideBuilding = {
+          id: polygon.id,
+          name: polygon.name,
+          distance: 0, // 폴리곤 내부이므로 0m
+          coordinates: null,
+          isInside: true
+        };
+      }
+    });
+
+    // 2. 폴리곤 내부에 있으면 해당 건물을 최우선으로 설정
+    if (insideBuilding) {
+      closest = insideBuilding;
+      buildings.push(insideBuilding);
+      console.log(`✅ 폴리곤 기반 건물 인식: ${insideBuilding.name}`);
+    }
+
+    // 3. 폴리곤 내부에 없으면 거리 기반으로 계산
+    if (!insideBuilding) {
+      Object.entries(gyeongbokgungBuildings).forEach(([buildingId, building]) => {
+        if (building.coordinates) {
+          const distance = calculateDistance(
+            gpsData.latitude, gpsData.longitude,
+            building.coordinates.lat, building.coordinates.lng
+          );
+
+          const buildingInfo = {
+            id: buildingId,
+            name: building.name,
+            distance: Math.round(distance),
+            coordinates: building.coordinates,
+            isInside: false
+          };
+
+          // 200m 이내의 건물들만 표시
+          if (distance <= 200) {
+            buildings.push(buildingInfo);
+          }
+
+          // 가장 가까운 건물 찾기
+          if (distance < minDistance) {
+            minDistance = distance;
+            closest = buildingInfo;
+          }
+        }
+      });
+    }
+
+    // 거리순으로 정렬
+    buildings.sort((a, b) => a.distance - b.distance);
+
+    setNearbyBuildings(buildings);
+    setClosestBuilding(closest);
+  };
+
   // 백엔드로 GPS 데이터 전송 (휴대폰 대응)
   const sendGPSToBackend = async (gpsData) => {
     try {
-      // 여러 IP 주소 시도 (실제 PC IP로 변경 필요)
+      // 로컬 테스트를 위해 localhost만 사용
       const possibleIPs = [
-        '192.168.0.100',  // 일반적인 공유기 IP 대역
-        '192.168.1.100',  // 다른 일반적인 IP 대역
-        '10.0.0.100',     // 또 다른 사설 IP 대역
-        window.location.hostname,
         'localhost',
         '127.0.0.1'
       ];
-      
+
       console.log('📱 휴대폰에서 백엔드 연결 시도...');
       console.log('📍 전송할 GPS 데이터:', JSON.stringify(gpsData, null, 2));
-      
+
       for (const ip of possibleIPs) {
-        const url = `http://${ip}:5003/api/gps`;
+        // HTTPS 페이지에서는 HTTPS API 호출
+        const protocol = window.location.protocol;
+        const url = `${protocol}//${ip}:5006/api/gps`;
         try {
           console.log(`🔗 시도 중: ${url}`);
-          
+
           const response = await fetch(url, {
             method: 'POST',
-            headers: { 
+            headers: {
               'Content-Type': 'application/json',
               'Accept': 'application/json'
             },
             body: JSON.stringify(gpsData)
           });
-          
+
           console.log(`📶 ${url} 응답 상태:`, response.status);
-          
+
           if (response.ok) {
             const result = await response.json();
             console.log('✅ 백엔드 전송 성공:', result);
@@ -166,10 +250,10 @@ function CameraPage() {
           console.warn(`❌ ${url} 연결 실패:`, error.name, error.message);
         }
       }
-      
+
       console.error('❌ 모든 백엔드 URL 연결 실패');
       console.log('📝 백엔드 서버가 실행 중인지 확인하고, PC의 실제 IP 주소를 possibleIPs 배열에 추가하세요.');
-      
+
     } catch (error) {
       console.error('❌ 백엔드 전송 오류:', error);
     }
@@ -183,9 +267,9 @@ function CameraPage() {
 
     try {
       setIsAnalyzing(true);
-      
+
       console.log('📸 촬영 버튼 클릭');
-      
+
       console.log('📸 사진 촬영 시작');
 
       // 캔버스에 현재 비디오 프레임 캡처
@@ -197,13 +281,32 @@ function CameraPage() {
       canvas.height = video.videoHeight;
       context.drawImage(video, 0, 0);
 
-      // 2초 후 자연스럽게 경회루 페이지로 이동
+      // GPS 데이터를 백엔드로 전송하여 건물 인식
+      console.log('📍 GPS 데이터로 건물 인식 시작:', currentGPS);
+      const recognitionResult = await sendGPSToBackend(currentGPS);
+
+      // 2초 후 인식된 건물 페이지로 이동
       setTimeout(() => {
         console.log('📍 DetailPage로 전달할 GPS 데이터:', currentGPS);
         console.log('🚫 DetailPage 이동 - GPS 업데이트 중지');
         stopGPSTracking();
         setIsAnalyzing(false);
-        navigate('/detail/gyeonghoeru', { state: { gpsData: currentGPS } });
+
+        // 백엔드 연결 실패 시 클라이언트 사이드 건물 인식 사용
+        let buildingId = 'gyeonghoeru'; // 기본값
+
+        if (recognitionResult?.buildingId) {
+          // 백엔드에서 인식 성공
+          buildingId = recognitionResult.buildingId;
+          console.log('✅ 백엔드 건물 인식 성공:', buildingId);
+        } else if (closestBuilding) {
+          // 클라이언트 사이드 건물 인식 사용
+          buildingId = closestBuilding.id;
+          console.log('🔄 클라이언트 사이드 건물 인식 사용:', buildingId);
+        }
+
+        console.log('🏛️ 최종 인식된 건물:', buildingId);
+        navigate(`/detail/${buildingId}`, { state: { gpsData: currentGPS } });
       }, 2000);
 
     } catch (error) {
@@ -218,10 +321,10 @@ function CameraPage() {
 
   const handleRetake = async () => {
     console.log('🔄 재촬영 - 상태 초기화');
-    
+
     setIsAnalyzing(false);
     setError(null);
-    
+
     // MainPage GPS 데이터 다시 로드
     const savedGPS = localStorage.getItem('mainPageGPS');
     if (savedGPS) {
@@ -230,7 +333,7 @@ function CameraPage() {
       setIsInitialGPSComplete(true);
       setLocationStatus(''); // 상태 메시지 숨김
     }
-    
+
     await startCamera();
   };
 
@@ -315,6 +418,90 @@ function CameraPage() {
                 {t.direction}: {Math.round(currentHeading)}° ({getCompassDirection(currentHeading)})
               </div>
             )}
+          </div>
+        )}
+
+        {/* 실시간 건물 인식 표시 */}
+        {!locationStatus && closestBuilding && (
+          <div style={{
+            position: 'absolute',
+            top: '20px',
+            left: '20px',
+            right: '20px',
+            backgroundColor: 'rgba(0,0,0,0.8)',
+            color: 'white',
+            padding: '16px',
+            borderRadius: '12px',
+            fontSize: '16px',
+            textAlign: 'center',
+            zIndex: 1000,
+            border: '2px solid rgba(255,255,255,0.3)'
+          }}>
+            <div style={{
+              fontSize: '18px',
+              fontWeight: 'bold',
+              marginBottom: '8px',
+              color: '#87CEEB'
+            }}>
+              🏛️ {closestBuilding.name}
+            </div>
+            <div style={{
+              fontSize: '24px',
+              fontWeight: 'bold',
+              color: '#FFD700',
+              marginBottom: '4px'
+            }}>
+              {closestBuilding.distance}m
+            </div>
+            {currentHeading !== null && (
+              <div style={{ fontSize: '12px', opacity: 0.8 }}>
+                방향: {Math.round(currentHeading)}° ({getCompassDirection(currentHeading)})
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 주변 건물 목록 (하단) */}
+        {!locationStatus && nearbyBuildings.length > 1 && (
+          <div style={{
+            position: 'absolute',
+            bottom: '140px',
+            left: '20px',
+            right: '20px',
+            backgroundColor: 'rgba(0,0,0,0.7)',
+            color: 'white',
+            padding: '12px',
+            borderRadius: '8px',
+            fontSize: '12px',
+            zIndex: 1000,
+            maxHeight: '120px',
+            overflowY: 'auto'
+          }}>
+            <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>
+              📍 주변 문화재
+            </div>
+            {nearbyBuildings.slice(0, 5).map((building, index) => (
+              <div key={building.id} style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '4px 0',
+                borderBottom: index < Math.min(nearbyBuildings.length, 5) - 1 ? '1px solid rgba(255,255,255,0.2)' : 'none'
+              }}>
+                <span style={{
+                  color: index === 0 ? '#87CEEB' : 'white',
+                  fontWeight: index === 0 ? 'bold' : 'normal'
+                }}>
+                  {building.name}
+                </span>
+                <span style={{
+                  color: index === 0 ? '#FFD700' : '#ccc',
+                  fontWeight: 'bold'
+                }}>
+                  {building.distance}m
+                </span>
+              </div>
+            ))}
           </div>
         )}
 

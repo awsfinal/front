@@ -14,9 +14,9 @@ function ToiletPage() {
     disabled: false,
     allDay: false
   });
-  
+
   const t = translations[language];
-  
+
   useEffect(() => {
     const savedLanguage = getLanguage();
     setLanguage(savedLanguage);
@@ -434,7 +434,7 @@ function ToiletPage() {
       `;
 
       // UTF-8을 Base64로 안전하게 인코딩
-      const base64String = btoa(encodeURIComponent(svgString).replace(/%([0-9A-F]{2})/g, (match, p1) => String.fromCharCode(parseInt(p1, 16))));
+      const base64String = btoa(encodeURIComponent(svgString).replace(/%([0-9A-F]{2})/g, (_, p1) => String.fromCharCode(parseInt(p1, 16))));
 
       const toiletMarkerImage = new window.kakao.maps.MarkerImage(
         'data:image/svg+xml;base64,' + base64String,
@@ -667,11 +667,11 @@ function ToiletPage() {
             {t.nearestToilet}
           </h3>
 
-          <div style={{ 
+          <div style={{
             flex: 1,
-            display: 'flex', 
-            flexDirection: 'column', 
-            gap: '10px', 
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '10px',
             overflowY: 'auto',
             paddingRight: '5px' // 스크롤바 공간
           }}>
