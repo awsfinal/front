@@ -8,12 +8,12 @@ export const findBuildingFromMap = async (lat, lng) => {
     // 1단계: 폴리곤 영역 우선 검색
     console.log('🎯 1단계: 폴리곤 영역 검색 시작');
     const polygonBuilding = findBuildingByPolygon(lat, lng);
-    
+
     if (polygonBuilding) {
       // 폴리곤에서 찾은 건물을 기존 건물 데이터와 매칭
       const mappedBuildingId = mapPolygonToBuilding(polygonBuilding.id);
       const buildingData = gyeongbokgungBuildings[mappedBuildingId];
-      
+
       if (buildingData) {
         console.log(`✅ 폴리곤 매칭 성공: ${polygonBuilding.name} -> ${buildingData.name}`);
         resolve({
@@ -26,9 +26,9 @@ export const findBuildingFromMap = async (lat, lng) => {
         return;
       }
     }
-    
+
     console.log('📍 2단계: 카카오 지도 API 검색 시작');
-    
+
     if (!window.kakao || !window.kakao.maps || !window.kakao.maps.services) {
       console.log('카카오 지도 API가 없어 기본 방식 사용');
       resolve(findClosestBuildingFallback(lat, lng));
@@ -99,7 +99,7 @@ export const findBuildingFromMap = async (lat, lng) => {
 // 장소명으로 기존 건물 데이터와 매칭
 export const findMatchingBuilding = (placeName) => {
   console.log(`🔍 장소명 매칭 시도: "${placeName}"`);
-  
+
   const nameMapping = {
     // 기존 건물들
     '경회루': 'gyeonghoeru',
@@ -128,7 +128,7 @@ export const findMatchingBuilding = (placeName) => {
     '민정문': 'minjeongmun',
     '인정당': 'injeongdang',
     '선원전': 'seonwonjeon',
-    
+
     // 폴리곤에서 추가된 건물들
     '흠경각': 'heumgyeonggak',
     '응지당': 'eungjidang',
@@ -149,12 +149,12 @@ export const findMatchingBuilding = (placeName) => {
 
   // 장소명에서 건물명 추출 (더 정확한 매칭을 위해 긴 이름부터 확인)
   const sortedNames = Object.keys(nameMapping).sort((a, b) => b.length - a.length);
-  
+
   for (const buildingName of sortedNames) {
     if (placeName.includes(buildingName)) {
       const buildingId = nameMapping[buildingName];
       const buildingData = gyeongbokgungBuildings[buildingId];
-      
+
       if (buildingData) {
         console.log(`✅ 매칭 성공: "${buildingName}" -> ${buildingData.name}`);
         return buildingData;

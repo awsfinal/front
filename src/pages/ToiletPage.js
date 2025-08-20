@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { translations, getLanguage } from '../utils/translations';
 
 function ToiletPage() {
   const navigate = useNavigate();
@@ -7,11 +8,20 @@ function ToiletPage() {
   const [map, setMap] = useState(null);
   const [toilets, setToilets] = useState([]);
   const [userLocation, setUserLocation] = useState(null);
-  const [currentAddress, setCurrentAddress] = useState('위치 확인 중...');
+  const [language, setLanguage] = useState('ko');
+  const [currentAddress, setCurrentAddress] = useState('');
   const [filters, setFilters] = useState({
     disabled: false,
     allDay: false
   });
+
+  const t = translations[language];
+
+  useEffect(() => {
+    const savedLanguage = getLanguage();
+    setLanguage(savedLanguage);
+    setCurrentAddress(savedLanguage === 'ko' ? '위치 확인 중...' : 'Checking location...');
+  }, []);
 
   // 사용자 위치 가져오기
   useEffect(() => {
@@ -247,7 +257,7 @@ function ToiletPage() {
           const userInfowindow = new window.kakao.maps.InfoWindow({
             content: `
               <div style="padding:8px;font-size:12px;text-align:center;max-width:200px;">
-                <strong style="color:#007AFF;">📍 내 위치</strong><br/>
+                <strong style="color:#007AFF;">📍 ${language === 'ko' ? '내 위치' : 'My Location'}</strong><br/>
                 ${improvedLocation.address ? `<span style="color:#666;font-size:10px;">${improvedLocation.address}</span>` : ''}
               </div>
             `
@@ -360,15 +370,15 @@ function ToiletPage() {
         const dummyToilets = [
           {
             id: 'dummy_1',
-            name: '근처 공용화장실',
-            address: '현재 위치 주변',
+            name: language === 'ko' ? '근처 공용화장실' : 'Nearby Public Toilet',
+            address: language === 'ko' ? '현재 위치 주변' : 'Near current location',
             lat: location.lat + 0.001,
             lng: location.lng + 0.001,
             phone: '',
             distance: Math.round(calculateDistance(location.lat, location.lng, location.lat + 0.001, location.lng + 0.001)),
             isDisabledAccessible: true,
             is24Hours: true,
-            operatingHours: '24시간'
+            operatingHours: language === 'ko' ? '24시간' : '24hrs'
           }
         ];
         setToilets(dummyToilets);
@@ -385,15 +395,15 @@ function ToiletPage() {
       const dummyToilets = [
         {
           id: 'error_dummy',
-          name: '근처 공용화장실',
-          address: '현재 위치 주변',
+          name: language === 'ko' ? '근처 공용화장실' : 'Nearby Public Toilet',
+          address: language === 'ko' ? '현재 위치 주변' : 'Near current location',
           lat: location.lat + 0.001,
           lng: location.lng + 0.001,
           phone: '',
           distance: 111,
           isDisabledAccessible: true,
           is24Hours: true,
-          operatingHours: '24시간'
+          operatingHours: language === 'ko' ? '24시간' : '24hrs'
         }
       ];
       setToilets(dummyToilets);
@@ -424,7 +434,7 @@ function ToiletPage() {
       `;
 
       // UTF-8을 Base64로 안전하게 인코딩
-      const base64String = btoa(encodeURIComponent(svgString).replace(/%([0-9A-F]{2})/g, (match, p1) => String.fromCharCode(parseInt(p1, 16))));
+      const base64String = btoa(encodeURIComponent(svgString).replace(/%([0-9A-F]{2})/g, (_, p1) => String.fromCharCode(parseInt(p1, 16))));
 
       const toiletMarkerImage = new window.kakao.maps.MarkerImage(
         'data:image/svg+xml;base64,' + base64String,
@@ -453,8 +463,8 @@ function ToiletPage() {
             <span style="color:#666;margin-top:3px;display:block;">${toilet.address}</span><br/>
             <div style="margin-top:5px;">
               <span style="color:#007AFF;font-weight:bold;">${toilet.distance}m</span>
-              ${toilet.isDisabledAccessible ? ' <span style="color:#4CAF50;margin-left:8px;">♿ 장애인</span>' : ''}
-              ${toilet.is24Hours ? ' <span style="color:#4CAF50;margin-left:8px;">🕐 24시간</span>' : ` <span style="color:#FF9500;margin-left:8px;">🕐 ${toilet.operatingHours}</span>`}
+              ${toilet.isDisabledAccessible ? ` <span style="color:#4CAF50;margin-left:8px;">♿ ${language === 'ko' ? '장애인' : 'Disabled'}</span>` : ''}
+              ${toilet.is24Hours ? ` <span style="color:#4CAF50;margin-left:8px;">🕐 ${language === 'ko' ? '24시간' : '24hrs'}</span>` : ` <span style="color:#FF9500;margin-left:8px;">🕐 ${language === 'ko' ? toilet.operatingHours : '06:00-22:00'}</span>`}
             </div>
           </div>
         `
@@ -516,28 +526,23 @@ function ToiletPage() {
           >
             ←
           </button>
-          <span style={{ fontSize: '18px', fontWeight: 'bold' }}>공용화장실</span>
+          <span style={{ fontSize: '18px', fontWeight: 'bold' }}>{t.publicToiletMap}</span>
           <div style={{ fontSize: '12px', color: '#007AFF', textAlign: 'right' }}>
-            {userLocation && userLocation.accuracy && (
-              <div>
-                정확도: {Math.round(userLocation.accuracy)}m
-                <br />
-                <button
-                  onClick={() => window.location.reload()}
-                  style={{
-                    fontSize: '10px',
-                    padding: '2px 6px',
-                    border: '1px solid #007AFF',
-                    borderRadius: '4px',
-                    backgroundColor: 'white',
-                    color: '#007AFF',
-                    cursor: 'pointer',
-                    marginTop: '2px'
-                  }}
-                >
-                  위치 새로고침
-                </button>
-              </div>
+            {userLocation && (
+              <button
+                onClick={() => window.location.reload()}
+                style={{
+                  fontSize: '10px',
+                  padding: '2px 6px',
+                  border: '1px solid #007AFF',
+                  borderRadius: '4px',
+                  backgroundColor: 'white',
+                  color: '#007AFF',
+                  cursor: 'pointer'
+                }}
+              >
+                {language === 'ko' ? '위치 새로고침' : 'Refresh Location'}
+              </button>
             )}
           </div>
         </div>
@@ -583,7 +588,7 @@ function ToiletPage() {
               cursor: 'pointer'
             }}
           >
-            장애인전용
+            {t.disabledToilet}
           </button>
           <button
             onClick={() => toggleFilter('allDay')}
@@ -597,7 +602,7 @@ function ToiletPage() {
               cursor: 'pointer'
             }}
           >
-            24시간
+            {t.available24h}
           </button>
         </div>
       </div>
@@ -659,14 +664,14 @@ function ToiletPage() {
         {/* Toilet List */}
         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '15px', margin: '0 0 15px 0', flexShrink: 0 }}>
-            가까운 화장실
+            {t.nearestToilet}
           </h3>
 
-          <div style={{ 
+          <div style={{
             flex: 1,
-            display: 'flex', 
-            flexDirection: 'column', 
-            gap: '10px', 
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '10px',
             overflowY: 'auto',
             paddingRight: '5px' // 스크롤바 공간
           }}>
@@ -700,9 +705,9 @@ function ToiletPage() {
                       </div>
                       <div style={{ fontSize: '11px', display: 'flex', gap: '5px', justifyContent: 'flex-end' }}>
                         {toilet.is24Hours ? (
-                          <span style={{ color: '#4CAF50' }}>24시간</span>
+                          <span style={{ color: '#4CAF50' }}>{language === 'ko' ? '24시간' : '24hrs'}</span>
                         ) : (
-                          <span style={{ color: '#FF9500' }}>{toilet.operatingHours}</span>
+                          <span style={{ color: '#FF9500' }}>{language === 'ko' ? toilet.operatingHours : '06:00-22:00'}</span>
                         )}
                         {toilet.isDisabledAccessible && (
                           <span style={{ color: '#4CAF50' }}>♿</span>
@@ -720,7 +725,7 @@ function ToiletPage() {
                 textAlign: 'center',
                 color: '#666'
               }}>
-                조건에 맞는 화장실이 없습니다.
+                {language === 'ko' ? '조건에 맞는 화장실이 없습니다.' : 'No toilets match the criteria.'}
               </div>
             )}
           </div>
@@ -738,7 +743,7 @@ function ToiletPage() {
             className="nav-icon"
             style={{ backgroundImage: 'url(/image/rubber-stamp.png)' }}
           ></div>
-          <span>스탬프</span>
+          <span style={{ fontSize: '12px', whiteSpace: 'nowrap' }}>{t.stamp}</span>
         </div>
         <div
           className="nav-item"
@@ -749,7 +754,7 @@ function ToiletPage() {
             className="nav-icon"
             style={{ backgroundImage: 'url(/image/nav_camera.png)' }}
           ></div>
-          <span>사진찍기</span>
+          <span style={{ fontSize: '11px', whiteSpace: 'nowrap' }}>{t.camera}</span>
         </div>
         <div
           className="nav-item"
@@ -760,7 +765,7 @@ function ToiletPage() {
             className="nav-icon"
             style={{ backgroundImage: 'url(/image/settings.png)' }}
           ></div>
-          <span>설정</span>
+          <span style={{ fontSize: '12px', whiteSpace: 'nowrap' }}>{t.settings}</span>
         </div>
       </div>
     </div>

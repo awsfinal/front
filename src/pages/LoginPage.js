@@ -1,8 +1,16 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { translations, getLanguage } from '../utils/translations';
 
 function LoginPage() {
   const navigate = useNavigate();
+  const [language, setLanguage] = useState('ko');
+  const t = translations[language];
+  
+  useEffect(() => {
+    const savedLanguage = getLanguage();
+    setLanguage(savedLanguage);
+  }, []);
 
   useEffect(() => {
     // 구글 로그인 초기화 (로딩 대기)
@@ -128,7 +136,7 @@ function LoginPage() {
             display: 'none'
           }}
         >
-          카카오로 시작하기
+          {t.loginWithKakao}
         </button>
 
         <img
@@ -161,7 +169,7 @@ function LoginPage() {
             display: 'none'
           }}
         >
-          네이버로 시작하기
+          {t.loginWithNaver}
         </button>
 
         <button
@@ -187,7 +195,7 @@ function LoginPage() {
             style={{ width: '20px', height: '20px' }}
             onError={(e) => e.target.style.display = 'none'}
           />
-          Google로 로그인
+          {t.loginWithGoogle}
         </button>
       </div>
 
@@ -207,7 +215,7 @@ function LoginPage() {
           }}
           onClick={() => navigate('/signup')}
         >
-          Sign up
+          {t.signUp}
         </button>
       </div>
     </div>

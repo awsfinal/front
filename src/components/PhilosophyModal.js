@@ -46,7 +46,7 @@ const PhilosophyModal = ({ isOpen, onClose, buildingId, buildingName }) => {
     setError(null);
 
     try {
-      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5002';
+      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5005';
       const requestUrl = `${apiUrl}/api/philosophy/${buildingId}`;
       
       const requestBody = {

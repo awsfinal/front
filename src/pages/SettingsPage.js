@@ -1,19 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { translations, getLanguage } from '../utils/translations';
 
 function SettingsPage() {
   const navigate = useNavigate();
-  const [fontSize, setFontSize] = useState('보통');
+  const [language, setLanguage] = useState('ko');
+  const [fontSize, setFontSize] = useState('medium');
+  const t = translations[language];
+  
+  useEffect(() => {
+    const savedLanguage = getLanguage();
+    setLanguage(savedLanguage);
+    setFontSize(savedLanguage === 'ko' ? '보통' : 'medium');
+  }, []);
 
   const handleLogout = () => {
-    if (window.confirm('로그아웃 하시겠습니까?')) {
+    if (window.confirm(language === 'ko' ? '로그아웃 하시겠습니까?' : 'Do you want to logout?')) {
       navigate('/');
     }
   };
 
   const handleDeleteAccount = () => {
-    if (window.confirm('정말로 회원탈퇴 하시겠습니까?\n모든 데이터가 삭제됩니다.')) {
-      alert('회원탈퇴가 완료되었습니다.');
+    if (window.confirm(language === 'ko' ? '정말로 회원탈퇴 하시겠습니까?\n모든 데이터가 삭제됩니다.' : 'Do you really want to withdraw?\nAll data will be deleted.')) {
+      alert(language === 'ko' ? '회원탈퇴가 완료되었습니다.' : 'Account withdrawal completed.');
       navigate('/');
     }
   };
@@ -51,7 +60,7 @@ function SettingsPage() {
         >
           ←
         </button>
-        <span style={{ fontSize: '18px', fontWeight: 'bold' }}>설정</span>
+        <span style={{ fontSize: '18px', fontWeight: 'bold' }}>{t.settingsTitle}</span>
       </div>
 
       {/* Settings Content */}
@@ -71,7 +80,7 @@ function SettingsPage() {
               marginBottom: '10px',
               fontWeight: '500'
             }}>
-              글꼴
+              {language === 'ko' ? '글꼴' : 'Font'}
             </div>
             <div style={{
               backgroundColor: 'white',
@@ -86,7 +95,7 @@ function SettingsPage() {
                 alt="글자크기" 
                 style={{ width: '24px', height: '24px', marginRight: '15px' }}
               />
-              <span style={{ fontSize: '16px', flex: 1 }}>글자 크기</span>
+              <span style={{ fontSize: '16px', flex: 1 }}>{t.textSize}</span>
               <select 
                 value={fontSize}
                 onChange={(e) => setFontSize(e.target.value)}
@@ -98,9 +107,19 @@ function SettingsPage() {
                   fontSize: '14px'
                 }}
               >
-                <option value="작게">작게</option>
-                <option value="보통">보통</option>
-                <option value="크게">크게</option>
+                {language === 'ko' ? (
+                  <>
+                    <option value="작게">작게</option>
+                    <option value="보통">보통</option>
+                    <option value="크게">크게</option>
+                  </>
+                ) : (
+                  <>
+                    <option value="small">{t.small}</option>
+                    <option value="medium">{t.medium}</option>
+                    <option value="large">{t.large}</option>
+                  </>
+                )}
               </select>
             </div>
           </div>
@@ -113,7 +132,7 @@ function SettingsPage() {
               marginBottom: '10px',
               fontWeight: '500'
             }}>
-              개인정보
+              {language === 'ko' ? '개인정보' : 'Personal Info'}
             </div>
             <div style={{
               backgroundColor: 'white',
@@ -138,7 +157,7 @@ function SettingsPage() {
                   alt="로그아웃" 
                   style={{ width: '24px', height: '24px', marginRight: '15px' }}
                 />
-                <span style={{ fontSize: '16px', color: '#333' }}>로그아웃</span>
+                <span style={{ fontSize: '16px', color: '#333' }}>{t.logout}</span>
               </button>
               
               <button 
@@ -158,7 +177,7 @@ function SettingsPage() {
                   alt="회원탈퇴" 
                   style={{ width: '24px', height: '24px', marginRight: '15px' }}
                 />
-                <span style={{ fontSize: '16px', color: '#FF3B30' }}>회원탈퇴</span>
+                <span style={{ fontSize: '16px', color: '#FF3B30' }}>{t.withdraw}</span>
               </button>
             </div>
           </div>
@@ -171,7 +190,7 @@ function SettingsPage() {
               marginBottom: '10px',
               fontWeight: '500'
             }}>
-              애플리케이션 정보
+              {t.appInfo}
             </div>
             <div style={{
               backgroundColor: 'white',
@@ -186,7 +205,7 @@ function SettingsPage() {
                 alt="버전" 
                 style={{ width: '24px', height: '24px', marginRight: '15px' }}
               />
-              <span style={{ fontSize: '16px', flex: 1 }}>버전</span>
+              <span style={{ fontSize: '16px', flex: 1 }}>{t.version}</span>
               <span style={{ fontSize: '14px', color: '#666' }}>v1.0.0</span>
             </div>
           </div>
@@ -199,7 +218,7 @@ function SettingsPage() {
             textAlign: 'center',
             marginTop: '5px'
           }}>
-            <div style={{ fontSize: '16px', fontWeight: '500', color: '#666' }}>광고</div>
+            <div style={{ fontSize: '16px', fontWeight: '500', color: '#666' }}>{t.advertisement}</div>
           </div>
         </div>
       </div>
@@ -215,7 +234,7 @@ function SettingsPage() {
             className="nav-icon" 
             style={{ backgroundImage: 'url(/image/rubber-stamp.png)' }}
           ></div>
-          <span>스탬프</span>
+          <span style={{ fontSize: '12px', whiteSpace: 'nowrap' }}>{t.stamp}</span>
         </div>
         <div 
           className="nav-item"
@@ -226,7 +245,7 @@ function SettingsPage() {
             className="nav-icon" 
             style={{ backgroundImage: 'url(/image/nav_camera.png)' }}
           ></div>
-          <span>사진찍기</span>
+          <span style={{ fontSize: '11px', whiteSpace: 'nowrap' }}>{t.camera}</span>
         </div>
         <div 
           className="nav-item active"
@@ -236,7 +255,7 @@ function SettingsPage() {
             className="nav-icon" 
             style={{ backgroundImage: 'url(/image/settings.png)' }}
           ></div>
-          <span>설정</span>
+          <span style={{ fontSize: '12px', whiteSpace: 'nowrap' }}>{t.settings}</span>
         </div>
       </div>
     </div>
