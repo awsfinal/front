@@ -77,7 +77,7 @@ export const translations = {
     // 찍고갈래 페이지
     culturalHeritage: '문화재',
     touristSpot: '관광지',
-    experienceCenter: '체험관',
+    experienceCenter: '문화시설',
     mapView: '지도',
     listView: '목록',
     nearbyPlaces: '가까운 곳',
@@ -189,7 +189,7 @@ export const translations = {
     // 찍고갈래 페이지
     culturalHeritage: 'Cultural Heritage',
     touristSpot: 'Tourist Spot',
-    experienceCenter: 'Experience Center',
+    experienceCenter: 'Cultural Facility',
     mapView: 'Map',
     listView: 'List',
     nearbyPlaces: 'Nearby Places',

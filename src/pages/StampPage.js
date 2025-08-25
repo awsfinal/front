@@ -8,13 +8,330 @@ function StampPage() {
   const [language, setLanguage] = useState('ko');
   const [selectedCategory, setSelectedCategory] = useState('culturalHeritage');
   const [viewMode, setViewMode] = useState('map'); // 'map' or 'list'
+  const [rdsData, setRdsData] = useState([]); // RDS 데이터
+  const [experienceData, setExperienceData] = useState([]); // 체험관 데이터
+  const [unescoData, setUnescoData] = useState([]); // 유네스코 데이터
+  const [isLoadingRDS, setIsLoadingRDS] = useState(false); // RDS 로딩 상태
+  const [currentGPS, setCurrentGPS] = useState(null); // GPS 위치
   const mapRef = useRef(null);
   const [map, setMap] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
   const [selectedPlace, setSelectedPlace] = useState(null);
+  const [showDetailModal, setShowDetailModal] = useState(false); // 상세 정보 모달 표시 상태
+  const [selectedPlaceDetail, setSelectedPlaceDetail] = useState(null); // 선택된 장소의 상세 정보
   const [mapLevel, setMapLevel] = useState(10); // 최대 축소 레벨
   const [markers, setMarkers] = useState([]);
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
+  // RDS에서 체험관 데이터 가져오기
+  const fetchExperienceData = async () => {
+    if (!currentGPS) {
+      console.log('❌ GPS 데이터 없음, 체험관 조회 건너뜀');
+      return;
+    }
+
+    console.log('🎯 체험관 데이터 요청 시작:', currentGPS);
+    
+    try {
+      const url = `/api/stamp/experience-centers?latitude=${currentGPS.latitude}&longitude=${currentGPS.longitude}&limit=30`;
+      console.log('📡 체험관 API 호출:', url);
+      
+      const response = await fetch(url);
+      console.log('📡 체험관 API 응답 상태:', response.status);
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log('📡 체험관 API 응답 데이터:', result);
+        
+        if (result.success && result.data) {
+          console.log('✅ 체험관 RDS 데이터 수신:', result.data.length, '개');
+          setExperienceData(result.data);
+        } else {
+          console.warn('⚠️ 체험관 RDS 응답 형식 오류:', result);
+          setExperienceData([]);
+        }
+      } else {
+        console.error('❌ 체험관 RDS API 호출 실패:', response.status);
+        setExperienceData([]);
+      }
+    } catch (error) {
+      console.error('❌ 체험관 RDS 데이터 가져오기 오류:', error);
+      setExperienceData([]);
+    }
+  };
+
+  // RDS에서 유네스코 데이터 가져오기
+  const fetchUnescoData = async () => {
+    if (!currentGPS) {
+      console.log('❌ GPS 데이터 없음, 유네스코 조회 건너뜀');
+      return;
+    }
+
+    console.log('🎯 유네스코 데이터 요청 시작:', currentGPS);
+    
+    try {
+      const url = `/api/stamp/unesco-spots?latitude=${currentGPS.latitude}&longitude=${currentGPS.longitude}&limit=50`;
+      console.log('📡 유네스코 API 호출:', url);
+      
+      const response = await fetch(url);
+      console.log('📡 유네스코 API 응답 상태:', response.status);
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log('📡 유네스코 API 응답 데이터:', result);
+        
+        if (result.success && result.data) {
+          console.log('✅ 유네스코 RDS 데이터 수신:', result.data.length, '개');
+          setUnescoData(result.data);
+        } else {
+          console.warn('⚠️ 유네스코 RDS 응답 형식 오류:', result);
+          setUnescoData([]);
+        }
+      } else {
+        console.error('❌ 유네스코 RDS API 호출 실패:', response.status);
+        setUnescoData([]);
+      }
+    } catch (error) {
+      console.error('❌ 유네스코 RDS 데이터 가져오기 오류:', error);
+      setUnescoData([]);
+    }
+  };
+
+  // RDS에서 관광지 데이터 가져오기 (찍고갈래 전용)
+  const fetchRDSData = async () => {
+    if (!currentGPS) {
+      console.log('❌ GPS 데이터 없음, RDS 조회 건너뜀');
+      return;
+    }
+
+    console.log('🎯 RDS 데이터 요청 시작:', currentGPS);
+    setIsLoadingRDS(true);
+    
+    try {
+      // 찍고갈래 전용 API 사용
+      const url = `/api/stamp/tourist-spots?latitude=${currentGPS.latitude}&longitude=${currentGPS.longitude}&limit=50`;
+      console.log('📡 API 호출:', url);
+      
+      const response = await fetch(url);
+      console.log('📡 API 응답 상태:', response.status);
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log('📡 API 응답 전체:', result);
+        
+        if (result.success && result.data) {
+          console.log('✅ 찍고갈래 RDS 데이터 수신:', result.data.length, '개');
+          console.log('📊 데이터 소스:', result.source);
+          
+          // 각 아이템의 ID 정보를 자세히 로깅
+          result.data.forEach((item, index) => {
+            console.log(`🔍 원본 아이템 ${index + 1}:`, {
+              name: item.name,
+              id: item.id,
+              content_id: item.content_id,
+              type: typeof item.id,
+              raw: item
+            });
+          });
+          
+          // 유네스코처럼 정규화 없이 직접 사용
+          setRdsData(result.data);
+        } else {
+          console.warn('⚠️ 찍고갈래 RDS 응답 형식 오류:', result);
+          setRdsData([]);
+        }
+      } else {
+        console.error('❌ 찍고갈래 RDS API 호출 실패:', response.status);
+        setRdsData([]);
+      }
+    } catch (error) {
+      console.error('❌ 찍고갈래 RDS 데이터 가져오기 오류:', error);
+      setRdsData([]);
+    } finally {
+      setIsLoadingRDS(false);
+    }
+  };
+
+  // GPS 위치 가져오기
+  const getCurrentLocation = () => {
+    console.log('🔍 GPS 초기화 시작...');
+    
+    // 먼저 저장된 GPS 데이터 확인
+    const savedGPS = localStorage.getItem('mainPageGPS') || localStorage.getItem('cameraPageGPS');
+    if (savedGPS) {
+      try {
+        const gpsData = JSON.parse(savedGPS);
+        if (gpsData.latitude && gpsData.longitude) {
+          setCurrentGPS(gpsData);
+          console.log('✅ 저장된 GPS 데이터 사용:', gpsData);
+          return;
+        }
+      } catch (error) {
+        console.warn('⚠️ 저장된 GPS 데이터 파싱 실패:', error);
+      }
+    }
+
+    console.log('📍 저장된 GPS 없음, 기본 위치 사용');
+    // 기본 위치 (경복궁) 즉시 설정
+    const defaultGPS = {
+      latitude: 37.5788,
+      longitude: 126.9770,
+      accuracy: 100,
+      timestamp: new Date().toISOString(),
+      isDefault: true
+    };
+    setCurrentGPS(defaultGPS);
+    console.log('✅ 기본 GPS 설정 완료:', defaultGPS);
+
+    // 실시간 GPS 획득 시도
+    if (navigator.geolocation) {
+      console.log('🔄 실시간 GPS 획득 시도...');
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const gpsData = {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            accuracy: position.coords.accuracy,
+            timestamp: new Date().toISOString()
+          };
+          setCurrentGPS(gpsData);
+          console.log('✅ 실시간 GPS 획득 성공:', gpsData);
+        },
+        (error) => {
+          console.warn('⚠️ 실시간 GPS 획득 실패, 기본 위치 유지:', error);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 300000 // 5분
+        }
+      );
+    }
+  };
+
+  // 컴포넌트 마운트 시 GPS 및 RDS 데이터 가져오기
+  useEffect(() => {
+    console.log('🚀 StampPage 컴포넌트 마운트됨');
+    getCurrentLocation();
+    
+    // 강제로 기본 GPS로 RDS 데이터 로드 시도
+    setTimeout(() => {
+      if (!currentGPS) {
+        console.log('⚡ 강제 RDS 데이터 로드 시도');
+        const forceGPS = {
+          latitude: 37.5788,
+          longitude: 126.9770,
+          accuracy: 100,
+          timestamp: new Date().toISOString(),
+          isDefault: true
+        };
+        setCurrentGPS(forceGPS);
+      }
+    }, 2000);
+  }, []);
+
+  // GPS 위치가 설정되면 RDS 데이터 가져오기
+  useEffect(() => {
+    console.log('🔄 currentGPS 변경됨:', currentGPS);
+    if (currentGPS) {
+      fetchRDSData();
+      fetchExperienceData();
+      fetchUnescoData();
+    }
+  }, [currentGPS]);
+
+  // 리스트에서 장소 클릭 시 상세 정보 표시
+  const handleListItemClick = (place) => {
+    console.log('리스트 아이템 클릭:', place.name || place.title);
+    setSelectedPlaceDetail(place);
+    setShowDetailModal(true);
+  };
+
+  // 상세 정보 모달 닫기
+  const closeDetailModal = () => {
+    setShowDetailModal(false);
+    setSelectedPlaceDetail(null);
+  };
+
+  // 상세 정보에서 상세 페이지로 이동
+  const goToDetailPage = (place) => {
+    closeDetailModal();
+    handlePlaceClick(place);
+  };
+
+  // 장소 클릭 시 올바른 페이지로 이동하는 함수
+  // 패딩된 ID를 실제 content_id로 매핑하는 테이블 (임시 해결책)
+  const paddedIdToContentId = {
+    '000001': '126508',  // 경복궁
+    '000002': '1604941', // 창덕궁 낙선재
+    '000003': '126509',  // 덕수궁
+    '000004': '126511',  // 창경궁
+    '000005': '126510',  // 종묘 [유네스코 세계유산]
+    '000006': '126484',  // 경희궁
+    '000007': '127454',  // 서울 운현궁
+    '000009': '128162',  // 숭례문
+    '000010': '128144',  // 조계사(서울)
+    '000011': '126535',  // 남산서울타워
+    '000012': '2733968', // 강서한강공원
+    '000013': '129507',  // 청계천
+    '000014': '126537',  // 북촌한옥마을
+    '000015': '126485',  // 남산공원(서울)
+    '000016': '2476731', // 롯데월드 아쿠아리움
+    '000017': '2470006', // 동대문디자인플라자(DDP)
+    '000018': '129703',  // 국립중앙박물관
+    '000019': '126148',  // 범어사(부산)
+    '000020': '126848',  // 해동용궁사
+    '000021': '126121',  // 용두산공원
+    // 더 많은 데이터가 필요하면 추가
+  };
+
+  const handlePlaceClick = (place) => {
+    console.log('🎯 장소 클릭:', place.name || place.title);
+    console.log('🔍 클릭된 장소 전체 데이터:', place);
+    console.log('🆔 ID 정보:', {
+      id: place.id,
+      content_id: place.content_id
+    });
+    
+    let targetId = place.content_id || place.id;
+    
+    // 패딩된 ID를 실제 content_id로 변환
+    if (typeof targetId === 'string' && paddedIdToContentId[targetId]) {
+      const realContentId = paddedIdToContentId[targetId];
+      console.log('🔄 패딩된 ID를 실제 content_id로 변환:', targetId, '→', realContentId);
+      targetId = realContentId;
+    }
+    // 일반적인 패딩 제거 (매핑 테이블에 없는 경우)
+    else if (typeof targetId === 'string' && /^0{3,}\d+$/.test(targetId)) {
+      const unpaddedId = targetId.replace(/^0+/, '') || '1';
+      console.log('🔄 일반 패딩 제거:', targetId, '→', unpaddedId);
+      targetId = unpaddedId;
+    }
+    
+    console.log('🎯 최종 사용할 ID:', targetId);
+    
+    // RDS 데이터인지 확인
+    const isRDSData = (
+      place.content_id || 
+      (place.image && place.image.includes('myturn9.s3.ap-northeast-1.amazonaws.com')) ||
+      place.area_name || 
+      place.spot_category ||
+      place.address ||
+      place.distance !== undefined ||
+      place.unesco !== undefined ||
+      place.area_code !== undefined
+    );
+    
+    console.log('🔍 데이터 타입 판별:', isRDSData ? 'RDS 데이터' : '기존 데이터');
+    
+    if (isRDSData) {
+      console.log('🚀 관광지 상세 페이지로 이동:', `/tourist-spot/${targetId}`);
+      navigate(`/tourist-spot/${targetId}`);
+    } else {
+      console.log('🚀 건물 상세 페이지로 이동:', `/detail/${targetId}`);
+      navigate(`/detail/${targetId}`);
+    }
+  };
+
   const t = translations[language];
   
   useEffect(() => {
@@ -1813,20 +2130,163 @@ function StampPage() {
     }));
   };
 
+  // RDS 데이터를 표준 형식으로 변환하는 함수
+  const normalizeRDSData = (rdsItem) => {
+    console.log('🔄 RDS 데이터 정규화 시작:', rdsItem.title || rdsItem.name);
+    console.log('🔍 원본 데이터:', rdsItem);
+    
+    // 패딩된 ID 감지
+    const isPaddedId = (id) => {
+      return typeof id === 'string' && /^0{3,}\d+$/.test(id);
+    };
+    
+    // ID 결정 로직
+    let finalId = null;
+    
+    // content_id가 있으면 무조건 사용
+    if (rdsItem.content_id) {
+      finalId = rdsItem.content_id;
+      console.log('✅ content_id 사용:', finalId);
+    }
+    // id가 패딩된 형태가 아니면 사용
+    else if (rdsItem.id && !isPaddedId(rdsItem.id)) {
+      finalId = rdsItem.id;
+      console.log('✅ 일반 id 사용:', finalId);
+    }
+    // id가 패딩된 형태면 패딩 제거
+    else if (rdsItem.id && isPaddedId(rdsItem.id)) {
+      finalId = rdsItem.id.replace(/^0+/, '') || '1';
+      console.log('🔄 패딩 제거:', rdsItem.id, '→', finalId);
+    }
+    // 기본값
+    else {
+      finalId = '1';
+      console.log('❌ 기본값 사용:', finalId);
+    }
+    
+    const normalized = {
+      id: finalId, // 최종 처리된 ID
+      content_id: rdsItem.content_id, // 원본 content_id 보존
+      originalId: rdsItem.id, // 원본 id 보존
+      rawData: rdsItem, // 원본 데이터 전체 보존
+      name: rdsItem.title || rdsItem.name || '제목 없음',
+      title: rdsItem.title || rdsItem.name || '제목 없음',
+      description: rdsItem.overview || rdsItem.description || '상세 정보가 없습니다.',
+      image: rdsItem.image_url || rdsItem.image || '/image/default-tourist-spot.jpg',
+      lat: parseFloat(rdsItem.latitude || rdsItem.lat || 0),
+      lng: parseFloat(rdsItem.longitude || rdsItem.lng || 0),
+      latitude: parseFloat(rdsItem.latitude || rdsItem.lat || 0),
+      longitude: parseFloat(rdsItem.longitude || rdsItem.lng || 0),
+      address: rdsItem.address || '주소 정보 없음',
+      area_name: rdsItem.area_name || '',
+      area_code: rdsItem.area_code || 0,
+      spot_category: rdsItem.spot_category || '',
+      unesco: rdsItem.unesco || false,
+      tel: rdsItem.tel || '',
+      homepage: rdsItem.homepage || '',
+      info_center: rdsItem.info_center || '',
+      rest_date: rdsItem.rest_date || '',
+      use_time: rdsItem.use_time || '',
+      parking: rdsItem.parking || '',
+      facilities: rdsItem.facilities || [],
+      distance: rdsItem.distance || 0,
+      popular: true,
+      rating: 4.5,
+      reviews: 1000
+    };
+    
+    console.log('🔄 정규화 완료:', {
+      name: normalized.name,
+      finalId: normalized.id,
+      content_id: normalized.content_id,
+      originalId: normalized.originalId,
+      isPadded: isPaddedId(rdsItem.id)
+    });
+    
+    return normalized;
+  };
+
   // 헬퍼 함수들 - 거리 계산 포함
   const getCurrentData = () => {
     const categoryInfo = categoryData[selectedCategory];
-    let displayData = [...categoryInfo.regional]; // 항상 지역 대표는 표시
+    let displayData = [];
     
-    // 줌 레벨이 8 이하(더 확대된 상태)일 때 상세 데이터 추가
-    if (mapLevel <= 8) {
-      displayData = [...displayData, ...categoryInfo.detailed];
+    console.log('🔍 getCurrentData 호출:');
+    console.log('  - selectedCategory:', selectedCategory);
+    console.log('  - rdsData.length:', rdsData.length);
+    console.log('  - experienceData.length:', experienceData.length);
+    console.log('  - unescoData.length:', unescoData.length);
+    console.log('  - isLoadingRDS:', isLoadingRDS);
+    console.log('  - currentGPS:', currentGPS);
+    
+    // 카테고리별 RDS 데이터 사용 (하드코딩 제거)
+    if (selectedCategory === 'culturalHeritage' && rdsData.length > 0) {
+      // 문화재: RDS 데이터에서 spot_category = '문화재' 필터링
+      displayData = rdsData
+        .filter(item => {
+          const category = item.spot_category;
+          return category === '문화재' || category === '1';
+        })
+        .map(item => normalizeRDSData(item))
+        .sort((a, b) => (a.distance || 0) - (b.distance || 0))
+        .slice(0, 50);
+      
+      console.log('✅ 문화재 RDS 데이터 사용:', displayData.length, '개');
+      console.log('  - 첫 번째 아이템:', displayData[0]?.title || displayData[0]?.name);
+    } else if (selectedCategory === 'experienceCenter' && rdsData.length > 0) {
+      // 체험관(문화시설): RDS 데이터에서 spot_category = '문화시설' 필터링
+      displayData = rdsData
+        .filter(item => {
+          const category = item.spot_category;
+          return category === '문화시설' || category === '3';
+        })
+        .map(item => normalizeRDSData(item))
+        .sort((a, b) => (a.distance || 0) - (b.distance || 0))
+        .slice(0, 50);
+      
+      console.log('✅ 문화시설(체험관) RDS 데이터 사용:', displayData.length, '개');
+      console.log('  - 첫 번째 아이템:', displayData[0]?.title || displayData[0]?.name);
+    } else if (selectedCategory === 'touristSpot' && rdsData.length > 0) {
+      // 관광지: RDS 데이터에서 spot_category = '관광지' 필터링
+      displayData = rdsData
+        .filter(item => {
+          const category = item.spot_category;
+          return category === '관광지' || category === '2';
+        })
+        .map(item => normalizeRDSData(item))
+        .sort((a, b) => (a.distance || 0) - (b.distance || 0))
+        .slice(0, 50);
+      
+      console.log('✅ 관광지 RDS 데이터 사용:', displayData.length, '개');
+      console.log('  - 첫 번째 아이템:', displayData[0]?.title || displayData[0]?.name);
+    } else {
+      // RDS 데이터가 없거나 로딩 중일 때만 빈 배열 반환
+      displayData = [];
+      
+      console.log('⚠️ RDS 데이터 없음 또는 로딩 중');
     }
+
+    // 중복 제거 (같은 이름이나 같은 좌표의 데이터 제거)
+    const uniqueData = displayData.filter((item, index, self) => {
+      return index === self.findIndex(t => (
+        (t.title || t.name) === (item.title || item.name) || 
+        (Math.abs((t.lat || t.latitude) - (item.lat || item.latitude)) < 0.001 && 
+         Math.abs((t.lng || t.longitude) - (item.lng || item.longitude)) < 0.001)
+      ));
+    });
+
+    console.log(`📊 중복 제거: ${displayData.length}개 → ${uniqueData.length}개`);
     
-    return getDataWithDistance(displayData);
+    return getDataWithDistance(uniqueData);
   };
 
   const getAllData = () => {
+    // RDS 데이터가 있으면 우선 사용
+    if (rdsData.length > 0) {
+      return getCurrentData(); // RDS 데이터 사용
+    }
+    
+    // RDS 데이터가 없을 때만 하드코딩된 데이터 사용
     const categoryInfo = categoryData[selectedCategory];
     const allData = [...categoryInfo.regional, ...categoryInfo.detailed];
     return getDataWithDistance(allData);
@@ -1836,7 +2296,7 @@ function StampPage() {
     const allData = getAllData();
     if (allData.length === 0) return [];
     
-    // 거리순으로 정렬하여 가장 가까운 3개 반환
+    // 거리순으로 정렬하여 가장 가까운 5개 반환
     return allData
       .sort((a, b) => {
         // calculatedDistance가 없으면 기본값 사용
@@ -1844,22 +2304,54 @@ function StampPage() {
         const distanceB = b.calculatedDistance ? parseFloat(b.calculatedDistance) : 999;
         return distanceA - distanceB;
       })
-      .slice(0, 3);
+      .slice(0, 5);
   };
 
-  const getPopularPlaces = () => {
-    const allData = getAllData();
-    if (allData.length === 0) return [];
+  // 지역별 유네스코 데이터 가져오기 (RDS 데이터에서 필터링)
+  const getUnescoByRegion = () => {
+    const regions = {
+      '서울/경기': [1, 31],      // 서울(1), 경기(31)
+      '충청도': [33, 34],        // 충북(33), 충남(34)
+      '전라도': [37, 38],        // 전북(37), 전남(38)
+      '강원도': [32],            // 강원(32)
+      '부산': [6],               // 부산(6)
+      '경상도': [35, 36],        // 경북(35), 경남(36)
+      '제주도': [39]             // 제주(39)
+    };
+
+    const regionData = {};
     
-    return allData
-      .filter(place => place.popular)
-      .sort((a, b) => {
-        // calculatedDistance가 없으면 기본값 사용
-        const distanceA = a.calculatedDistance ? parseFloat(a.calculatedDistance) : 999;
-        const distanceB = b.calculatedDistance ? parseFloat(b.calculatedDistance) : 999;
-        return distanceA - distanceB;
-      })
-      .slice(0, 3);
+    // UNESCO 전용 데이터 사용 (이미 unesco=true인 데이터만 포함)
+    let sourceData = [];
+    if (unescoData.length > 0) {
+      sourceData = unescoData.map(item => normalizeRDSData(item));
+    }
+
+    console.log('📊 UNESCO 전용 데이터 사용:', sourceData.length, '개');
+
+    // area_code 기준으로 지역별 분류
+    Object.keys(regions).forEach(regionName => {
+      const areaCodes = regions[regionName];
+      regionData[regionName] = sourceData
+        .filter(item => {
+          const areaCode = parseInt(item.area_code);
+          return areaCodes.includes(areaCode);
+        })
+        .sort((a, b) => (a.distance || 0) - (b.distance || 0));
+    });
+
+    console.log('📊 area_code 기준 지역별 UNESCO 데이터:', regionData);
+    return regionData;
+  };
+
+  // 현재 선택된 지역의 UNESCO 데이터
+  const [selectedRegion, setSelectedRegion] = useState('서울/경기');
+  const regionUnescoData = getUnescoByRegion();
+  const currentRegionData = regionUnescoData[selectedRegion] || [];
+
+  const getPopularPlaces = () => {
+    // 현재 선택된 지역의 UNESCO 데이터 반환
+    return currentRegionData;
   };
 
   // 기존 마커들 제거
@@ -1878,14 +2370,23 @@ function StampPage() {
     console.log(`줌 레벨 ${mapLevel}에서 ${currentData.length}개 마커 표시`);
     
     currentData.forEach(place => {
+      // 좌표 확인
+      const lat = place.lat || place.latitude;
+      const lng = place.lng || place.longitude;
+      
+      if (!lat || !lng) {
+        console.warn('⚠️ 좌표 없음:', place.name || place.title, lat, lng);
+        return;
+      }
+
       const marker = new window.kakao.maps.Marker({
-        position: new window.kakao.maps.LatLng(place.lat, place.lng),
+        position: new window.kakao.maps.LatLng(lat, lng),
         map: kakaoMap
       });
 
       // 마커 클릭 이벤트
       window.kakao.maps.event.addListener(marker, 'click', function() {
-        console.log('Marker clicked:', place.name);
+        console.log('Marker clicked:', place.name || place.title);
         setSelectedPlace(place);
       });
 
@@ -2098,6 +2599,16 @@ function StampPage() {
       }}>
         <span style={{ fontSize: '14px', color: '#666' }}>
           {getCurrentData().length}{language === 'ko' ? '개의 장소' : ' places'} ({language === 'ko' ? '레벨' : 'Level'} {mapLevel})
+          {isLoadingRDS && (
+            <span style={{ marginLeft: '8px', color: '#007AFF' }}>
+              🔄 RDS 데이터 로딩중...
+            </span>
+          )}
+          {rdsData.length > 0 && (
+            <span style={{ marginLeft: '8px', color: '#28a745', fontSize: '12px' }}>
+              📍 RDS: {rdsData.length}개
+            </span>
+          )}
         </span>
         <div style={{
           display: 'flex',
@@ -2201,7 +2712,7 @@ function StampPage() {
                           objectFit: 'cover'
                         }}
                         onError={(e) => {
-                          e.target.src = '/image/placeholder.jpg';
+                          e.target.src = '/image/default-tourist-spot.jpg';
                         }}
                       />
                     </div>
@@ -2264,7 +2775,7 @@ function StampPage() {
                         alignItems: 'center'
                       }}>
                         <button
-                          onClick={() => navigate(`/detail/${selectedPlace.id}`)}
+                          onClick={() => handlePlaceClick(selectedPlace)}
                           style={{
                             backgroundColor: '#4CAF50',
                             color: 'white',
@@ -2314,6 +2825,26 @@ function StampPage() {
                 color: '#333'
               }}>
                 📍 {t.nearbyPlaces}
+                {getNearbyPlaces().length > 0 && (
+                  <span style={{ 
+                    marginLeft: '8px', 
+                    fontSize: '14px', 
+                    color: '#666',
+                    fontWeight: 'normal'
+                  }}>
+                    (거리순 5개)
+                  </span>
+                )}
+                {rdsData.length > 0 && (
+                  <span style={{ 
+                    marginLeft: '8px', 
+                    fontSize: '12px', 
+                    color: '#28a745',
+                    fontWeight: 'normal'
+                  }}>
+                    RDS
+                  </span>
+                )}
               </h3>
               <div style={{ 
                 display: 'flex', 
@@ -2334,7 +2865,7 @@ function StampPage() {
                         backgroundColor: '#f9f9f9',
                         cursor: 'pointer'
                       }}
-                      onClick={() => navigate(`/detail/${place.id}`)}
+                      onClick={() => handlePlaceClick(place)}
                     >
                       <img 
                         src={place.image}
@@ -2347,7 +2878,7 @@ function StampPage() {
                           marginRight: '12px'
                         }}
                         onError={(e) => {
-                          e.target.src = '/image/placeholder.jpg';
+                          e.target.src = '/image/default-tourist-spot.jpg';
                         }}
                       />
                       <div style={{ flex: 1 }}>
@@ -2381,17 +2912,6 @@ function StampPage() {
                         }}>
                           {place.description}
                         </p>
-                        <div style={{ 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          gap: '4px'
-                        }}>
-                          <span style={{ color: '#ff9800', fontSize: '12px' }}>★</span>
-                          <span style={{ fontSize: '12px' }}>{place.rating}</span>
-                          <span style={{ fontSize: '11px', color: '#999' }}>
-                            ({place.reviews.toLocaleString()})
-                          </span>
-                        </div>
                       </div>
                     </div>
                   ))
@@ -2401,8 +2921,20 @@ function StampPage() {
                     padding: '40px 20px',
                     color: '#666'
                   }}>
-                    <div style={{ fontSize: '24px', marginBottom: '10px' }}>📍</div>
-                    <div>{language === 'ko' ? '가까운 장소를 찾고 있습니다...' : 'Finding nearby places...'}</div>
+                    <div style={{ fontSize: '24px', marginBottom: '10px' }}>
+                      {isLoadingRDS ? '🔄' : '📍'}
+                    </div>
+                    <div>
+                      {isLoadingRDS 
+                        ? (language === 'ko' ? 'RDS에서 관광지 정보를 불러오는 중...' : 'Loading tourist spots from RDS...') 
+                        : (language === 'ko' ? '가까운 장소를 찾고 있습니다...' : 'Finding nearby places...')
+                      }
+                    </div>
+                    {rdsData.length === 0 && !isLoadingRDS && (
+                      <div style={{ marginTop: '10px', fontSize: '12px', color: '#999' }}>
+                        {language === 'ko' ? 'GPS 위치를 확인하고 있습니다.' : 'Checking GPS location.'}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -2420,17 +2952,74 @@ function StampPage() {
                 fontWeight: 'bold',
                 color: '#333'
               }}>
-                🔥 {t.popularPlaces}
+                🏛️ 유네스코 세계유산
+                {currentRegionData.length > 0 && (
+                  <span style={{ 
+                    marginLeft: '8px', 
+                    fontSize: '14px', 
+                    color: '#666',
+                    fontWeight: 'normal'
+                  }}>
+                    ({selectedRegion}: {currentRegionData.length}개)
+                  </span>
+                )}
+                <span style={{ 
+                  marginLeft: '8px', 
+                  fontSize: '12px', 
+                  color: '#28a745',
+                  fontWeight: 'normal'
+                }}>
+                  총 17개
+                </span>
               </h3>
+              
+              {/* 지역 선택 토글 */}
+              <div style={{
+                display: 'flex',
+                overflowX: 'auto',
+                gap: '8px',
+                padding: '10px 0',
+                marginBottom: '10px',
+                scrollbarWidth: 'none',
+                msOverflowStyle: 'none'
+              }}>
+                {Object.keys(regionUnescoData).map(region => (
+                  <button
+                    key={region}
+                    onClick={() => setSelectedRegion(region)}
+                    style={{
+                      minWidth: '80px',
+                      padding: '8px 12px',
+                      borderRadius: '20px',
+                      border: selectedRegion === region ? '2px solid #4CAF50' : '1px solid #ddd',
+                      backgroundColor: selectedRegion === region ? '#e8f5e8' : 'white',
+                      color: selectedRegion === region ? '#4CAF50' : '#666',
+                      fontSize: '12px',
+                      fontWeight: selectedRegion === region ? 'bold' : 'normal',
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    {region}
+                    {regionUnescoData[region] && regionUnescoData[region].length > 0 && (
+                      <span style={{ marginLeft: '4px', fontSize: '10px' }}>
+                        ({regionUnescoData[region].length})
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+              
               <div style={{ 
                 display: 'flex', 
                 flexDirection: 'column', 
                 gap: '12px',
-                maxHeight: 'calc(50vh - 80px)',
+                maxHeight: 'calc(50vh - 120px)',
                 overflowY: 'auto'
               }}>
-                {getPopularPlaces().length > 0 ? (
-                  getPopularPlaces().map(place => (
+                {currentRegionData.length > 0 ? (
+                  currentRegionData.map(place => (
                     <div 
                       key={place.id}
                       style={{
@@ -2442,7 +3031,7 @@ function StampPage() {
                         cursor: 'pointer',
                         position: 'relative'
                       }}
-                      onClick={() => navigate(`/detail/${place.id}`)}
+                      onClick={() => handlePlaceClick(place)}
                     >
                       <div style={{
                         position: 'absolute',
@@ -2455,7 +3044,7 @@ function StampPage() {
                         borderRadius: '10px',
                         fontWeight: 'bold'
                       }}>
-                        {language === 'ko' ? '인기' : 'HOT'}
+                        UNESCO
                       </div>
                       <img 
                         src={place.image}
@@ -2468,7 +3057,7 @@ function StampPage() {
                           marginRight: '12px'
                         }}
                         onError={(e) => {
-                          e.target.src = '/image/placeholder.jpg';
+                          e.target.src = '/image/default-tourist-spot.jpg';
                         }}
                       />
                       <div style={{ flex: 1, paddingRight: '40px' }}>
@@ -2501,17 +3090,6 @@ function StampPage() {
                         }}>
                           {place.description}
                         </p>
-                        <div style={{ 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          gap: '4px'
-                        }}>
-                          <span style={{ color: '#ff9800', fontSize: '12px' }}>★</span>
-                          <span style={{ fontSize: '12px' }}>{place.rating}</span>
-                          <span style={{ fontSize: '11px', color: '#999' }}>
-                            ({place.reviews.toLocaleString()})
-                          </span>
-                        </div>
                       </div>
                     </div>
                   ))
@@ -2521,8 +3099,8 @@ function StampPage() {
                     padding: '40px 20px',
                     color: '#666'
                   }}>
-                    <div style={{ fontSize: '24px', marginBottom: '10px' }}>🔥</div>
-                    <div>{language === 'ko' ? '인기 장소를 찾고 있습니다...' : 'Finding popular places...'}</div>
+                    <div style={{ fontSize: '24px', marginBottom: '10px' }}>🏛️</div>
+                    <div>{language === 'ko' ? '유네스코 세계유산을 찾고 있습니다...' : 'Finding UNESCO World Heritage Sites...'}</div>
                   </div>
                 )}
               </div>
@@ -2570,6 +3148,226 @@ function StampPage() {
           <span style={{ fontSize: '12px', whiteSpace: 'nowrap' }}>{language === 'ko' ? '설정' : 'Settings'}</span>
         </div>
       </div>
+
+      {/* 상세 정보 모달 */}
+      {showDetailModal && selectedPlaceDetail && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          zIndex: 10000,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px'
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '12px',
+            maxWidth: '400px',
+            width: '100%',
+            maxHeight: '80vh',
+            overflowY: 'auto',
+            position: 'relative'
+          }}>
+            {/* 모달 헤더 */}
+            <div style={{
+              position: 'sticky',
+              top: 0,
+              backgroundColor: 'white',
+              borderBottom: '1px solid #eee',
+              padding: '15px 20px',
+              borderRadius: '12px 12px 0 0'
+            }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}>
+                <h3 style={{
+                  margin: 0,
+                  fontSize: '18px',
+                  fontWeight: 'bold',
+                  color: '#333'
+                }}>
+                  {selectedPlaceDetail.name || selectedPlaceDetail.title}
+                </h3>
+                <button
+                  onClick={closeDetailModal}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    fontSize: '24px',
+                    cursor: 'pointer',
+                    color: '#666',
+                    padding: '0',
+                    width: '30px',
+                    height: '30px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+
+            {/* 모달 내용 */}
+            <div style={{ padding: '20px' }}>
+              {/* 이미지 */}
+              <img
+                src={selectedPlaceDetail.image || '/image/default-tourist-spot.jpg'}
+                alt={selectedPlaceDetail.name || selectedPlaceDetail.title}
+                style={{
+                  width: '100%',
+                  height: '200px',
+                  objectFit: 'cover',
+                  borderRadius: '8px',
+                  marginBottom: '15px'
+                }}
+                onError={(e) => {
+                  e.target.src = '/image/default-tourist-spot.jpg';
+                }}
+              />
+
+              {/* 기본 정보 */}
+              <div style={{ marginBottom: '15px' }}>
+                <div style={{
+                  fontSize: '14px',
+                  color: '#666',
+                  marginBottom: '5px'
+                }}>
+                  📍 {selectedPlaceDetail.address || '주소 정보 없음'}
+                </div>
+                {selectedPlaceDetail.distance && (
+                  <div style={{
+                    fontSize: '14px',
+                    color: '#28a745',
+                    marginBottom: '5px'
+                  }}>
+                    📏 거리: {selectedPlaceDetail.distance}
+                  </div>
+                )}
+                {selectedPlaceDetail.tel && (
+                  <div style={{
+                    fontSize: '14px',
+                    color: '#666',
+                    marginBottom: '5px'
+                  }}>
+                    📞 {selectedPlaceDetail.tel}
+                  </div>
+                )}
+              </div>
+
+              {/* 개요/설명 */}
+              {selectedPlaceDetail.description && (
+                <div style={{ marginBottom: '20px' }}>
+                  <h4 style={{
+                    fontSize: '16px',
+                    fontWeight: 'bold',
+                    color: '#333',
+                    marginBottom: '10px'
+                  }}>
+                    📖 개요
+                  </h4>
+                  <p style={{
+                    fontSize: '14px',
+                    lineHeight: '1.6',
+                    color: '#555',
+                    margin: 0
+                  }}>
+                    {selectedPlaceDetail.description}
+                  </p>
+                </div>
+              )}
+
+              {/* 추가 정보 */}
+              {(selectedPlaceDetail.use_time || selectedPlaceDetail.rest_date || selectedPlaceDetail.parking) && (
+                <div style={{ marginBottom: '20px' }}>
+                  <h4 style={{
+                    fontSize: '16px',
+                    fontWeight: 'bold',
+                    color: '#333',
+                    marginBottom: '10px'
+                  }}>
+                    ℹ️ 이용 정보
+                  </h4>
+                  {selectedPlaceDetail.use_time && (
+                    <div style={{
+                      fontSize: '14px',
+                      color: '#666',
+                      marginBottom: '5px'
+                    }}>
+                      🕒 이용시간: {selectedPlaceDetail.use_time}
+                    </div>
+                  )}
+                  {selectedPlaceDetail.rest_date && (
+                    <div style={{
+                      fontSize: '14px',
+                      color: '#666',
+                      marginBottom: '5px'
+                    }}>
+                      🚫 휴무일: {selectedPlaceDetail.rest_date}
+                    </div>
+                  )}
+                  {selectedPlaceDetail.parking && (
+                    <div style={{
+                      fontSize: '14px',
+                      color: '#666',
+                      marginBottom: '5px'
+                    }}>
+                      🚗 주차: {selectedPlaceDetail.parking}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* 액션 버튼들 */}
+              <div style={{
+                display: 'flex',
+                gap: '10px',
+                marginTop: '20px'
+              }}>
+                <button
+                  onClick={() => goToDetailPage(selectedPlaceDetail)}
+                  style={{
+                    flex: 1,
+                    backgroundColor: '#4CAF50',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '12px',
+                    fontSize: '14px',
+                    fontWeight: 'bold',
+                    cursor: 'pointer'
+                  }}
+                >
+                  상세 페이지로 이동
+                </button>
+                <button
+                  onClick={closeDetailModal}
+                  style={{
+                    flex: 1,
+                    backgroundColor: '#f5f5f5',
+                    color: '#666',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '12px',
+                    fontSize: '14px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  닫기
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

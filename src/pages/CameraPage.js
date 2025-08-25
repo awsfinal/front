@@ -62,21 +62,162 @@ function CameraPage() {
     // 카메라 시작
     startCamera();
     
-    // MainPage에서 GPS 데이터 가져오기
-    const savedGPS = localStorage.getItem('mainPageGPS');
-    if (savedGPS) {
-      const gpsData = JSON.parse(savedGPS);
-      setCurrentGPS(gpsData);
-      setIsInitialGPSComplete(true);
-      setLocationStatus(''); // 상태 메시지 숨김
-    } else {
-      setLocationStatus(`❌ ${t.gpsDataMissing}`);
-    }
+    // GPS 초기화 (즉시 기본값 설정하여 버튼 활성화)
+    console.log('🔍 카메라 페이지 GPS 초기화 시작...');
+    
+    // 즉시 기본 위치 설정하여 촬영 버튼 활성화
+    const defaultGPS = {
+      latitude: 37.5788,
+      longitude: 126.9770,
+      accuracy: 100,
+      timestamp: new Date().toISOString(),
+      isDefault: true
+    };
+    
+    setCurrentGPS(defaultGPS);
+    setIsInitialGPSComplete(true);
+    setLocationStatus('📍 기본 위치 사용 (경복궁)');
+    console.log('✅ 기본 위치 즉시 설정 - 촬영 버튼 활성화:', defaultGPS);
+    
+    // 강제로 촬영 버튼 활성화 확인 (여러 번 시도)
+    const ensureButtonActive = () => {
+      setTimeout(() => {
+        console.log('🔄 촬영 버튼 활성화 상태 확인:', isInitialGPSComplete);
+        if (!isInitialGPSComplete) {
+          console.log('⚠️ GPS 초기화 재시도');
+          setIsInitialGPSComplete(true);
+          setCurrentGPS(defaultGPS);
+        }
+      }, 500);
+      
+      setTimeout(() => {
+        setIsInitialGPSComplete(true);
+        console.log('🔄 촬영 버튼 강제 활성화');
+      }, 1500);
+    };
+    
+    ensureButtonActive();
+    
+    // 백그라운드에서 더 정확한 GPS 시도
+    setTimeout(() => {
+      initializeGPS();
+    }, 2000);
 
     return () => {
       stopCamera();
     };
   }, []);
+
+  // GPS 초기화 함수
+  const initializeGPS = () => {
+    console.log('🔍 GPS 초기화 시작...');
+    
+    // 1. MainPage GPS 데이터 확인
+    const mainPageGPS = localStorage.getItem('mainPageGPS');
+    if (mainPageGPS) {
+      try {
+        const gpsData = JSON.parse(mainPageGPS);
+        if (gpsData.latitude && gpsData.longitude) {
+          setCurrentGPS(gpsData);
+          setIsInitialGPSComplete(true);
+          setLocationStatus('');
+          console.log('✅ MainPage GPS 데이터 사용:', gpsData);
+          return;
+        }
+      } catch (error) {
+        console.warn('⚠️ MainPage GPS 데이터 파싱 실패:', error);
+      }
+    }
+
+    // 2. CameraPage GPS 데이터 확인
+    const cameraPageGPS = localStorage.getItem('cameraPageGPS');
+    if (cameraPageGPS) {
+      try {
+        const gpsData = JSON.parse(cameraPageGPS);
+        if (gpsData.latitude && gpsData.longitude) {
+          setCurrentGPS(gpsData);
+          setIsInitialGPSComplete(true);
+          setLocationStatus('');
+          console.log('✅ CameraPage GPS 데이터 사용:', gpsData);
+          return;
+        }
+      } catch (error) {
+        console.warn('⚠️ CameraPage GPS 데이터 파싱 실패:', error);
+      }
+    }
+
+    // 3. 기본 위치 즉시 설정 (경복궁)
+    console.log('⚠️ 저장된 GPS 데이터 없음. 기본 위치 사용...');
+    const defaultGPS = {
+      latitude: 37.5788,
+      longitude: 126.9770,
+      accuracy: 100,
+      timestamp: new Date().toISOString(),
+      isDefault: true
+    };
+    
+    setCurrentGPS(defaultGPS);
+    setIsInitialGPSComplete(true);
+    setLocationStatus('📍 기본 위치 사용 (경복궁)');
+    console.log('✅ 기본 위치 설정 완료:', defaultGPS);
+
+    // 4. 백그라운드에서 실제 GPS 획득 시도
+    setTimeout(() => {
+      getCurrentLocation();
+    }, 1000);
+  };
+
+  // 직접 GPS 위치 획득
+  const getCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      setLocationStatus('❌ GPS를 지원하지 않는 기기입니다');
+      return;
+    }
+
+    setLocationStatus('📍 GPS 위치 확인 중...');
+    
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const gpsData = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          accuracy: position.coords.accuracy,
+          timestamp: new Date().toISOString()
+        };
+        
+        setCurrentGPS(gpsData);
+        setIsInitialGPSComplete(true);
+        setLocationStatus('');
+        console.log('✅ 직접 GPS 획득 완료:', gpsData);
+        
+        // localStorage에 저장
+        localStorage.setItem('cameraPageGPS', JSON.stringify(gpsData));
+      },
+      (error) => {
+        console.error('❌ GPS 획득 실패:', error);
+        setLocationStatus('❌ GPS 위치를 확인할 수 없습니다');
+        
+        // 기본 위치 사용 (경복궁)
+        const defaultGPS = {
+          latitude: 37.5788,
+          longitude: 126.9770,
+          accuracy: 100,
+          timestamp: new Date().toISOString(),
+          isDefault: true
+        };
+        
+        setCurrentGPS(defaultGPS);
+        setIsInitialGPSComplete(true);
+        setLocationStatus('📍 기본 위치 사용 (경복궁)');
+        console.log('⚠️ 기본 위치 사용:', defaultGPS);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 60000
+      }
+    );
+  };
 
 
 

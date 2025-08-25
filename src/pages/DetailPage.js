@@ -166,13 +166,13 @@ function DetailPage() {
       } else {
         // 건물 정보가 없을 때 기본 건물 정보 생성 (테스트용)
         const defaultBuilding = {
-          id: id || 'unknown',
-          name: '흠경각',
-          nameEn: 'Heumgyeonggak',
-          description: '경복궁의 건물 중 하나입니다.',
-          detailedDescription: '흠경각은 경복궁 내의 중요한 건물 중 하나로, 조선시대의 건축 양식을 잘 보여주는 문화재입니다.',
-          coordinates: { lat: 37.5797, lng: 126.9765 },
-          images: ['/image/default-building.jpg'],
+          id: id || 'gyeonghoeru',
+          name: '경회루',
+          nameEn: 'Gyeonghoeru Pavilion',
+          description: '경복궁의 대표적인 누각으로, 연못 위에 세워진 아름다운 건물입니다.',
+          detailedDescription: '경회루는 조선 태종 12년(1412)에 창건되어 임진왜란 때 소실된 후 고종 4년(1867)에 중건된 2층 누각입니다. 국왕이 신하들과 연회를 베풀거나 외국 사신을 접대하던 곳으로, 경복궁에서 가장 아름다운 건물 중 하나로 꼽힙니다.',
+          coordinates: { lat: 37.5788, lng: 126.9770 },
+          images: ['/image/gyeonghoeru1.jpg'],
           buildYear: '조선시대',
           culturalProperty: '문화재',
           features: ['전통 건축', '경복궁 건물']

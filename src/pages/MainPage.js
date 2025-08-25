@@ -435,24 +435,57 @@ function MainPage() {
 
   // GPS 기반 가까운 관광지 계산 (RDS 우선)
   const getNearbyHeritage = () => {
+    console.log('🔍 getNearbyHeritage 호출됨');
+    console.log('🔍 nearbyTouristSpots 상태:', nearbyTouristSpots);
+    console.log('🔍 nearbyTouristSpots 길이:', nearbyTouristSpots?.length);
+    
     // RDS 데이터가 있으면 우선 사용
     if (nearbyTouristSpots && nearbyTouristSpots.length > 0) {
-      return nearbyTouristSpots.map(spot => ({
-        id: spot.contentId,
-        name: spot.title,
-        nameEn: spot.title, // 영문명이 없으면 한글명 사용
-        lat: parseFloat(spot.mapY),
-        lng: parseFloat(spot.mapX),
-        address: spot.addr1,
-        addressEn: spot.addr1,
-        image: spot.firstImage || '/image/default-tourist-spot.jpg',
-        distance: spot.distance,
-        formattedDistance: spot.distance ? `${spot.distance.toFixed(1)}km` : ''
-      }));
+      console.log('✅ RDS 데이터 사용 - 원본 데이터:', nearbyTouristSpots);
+      
+      const mappedData = nearbyTouristSpots.map(spot => {
+        console.log('🔍 개별 spot 데이터:', spot);
+        
+        const mappedItem = {
+          id: spot.content_id, // content_id만 사용
+          name: spot.title,
+          nameEn: spot.title,
+          lat: parseFloat(spot.latitude),
+          lng: parseFloat(spot.longitude),
+          address: spot.address,
+          addressEn: spot.address,
+          image: spot.image_url || '/image/default-tourist-spot.jpg',
+          distance: spot.distance,
+          formattedDistance: spot.distance ? `${spot.distance.toFixed(1)}km` : '',
+          area_name: spot.area_name,
+          spot_category: spot.spot_category,
+          isRDSData: true
+        };
+        
+        console.log('✅ 매핑 완료:', mappedItem.name, 'ID:', mappedItem.id, 'Type:', typeof mappedItem.id);
+        
+        // ID가 9인 경우 강제로 차단
+        if (mappedItem.id === 9 || mappedItem.id === '9') {
+          console.error('🚨 ID 9 감지됨! 이 데이터를 제외합니다:', mappedItem);
+          return null;
+        }
+        
+        return mappedItem;
+      }).filter(item => item !== null); // null 제거
+      
+      console.log('✅ 최종 RDS 매핑 데이터:', mappedData);
+      return mappedData;
     }
 
     // RDS 데이터가 없으면 fallback 데이터 사용
-    if (!currentGPS) return allHeritageData.slice(0, 3);
+    console.log('⚠️ RDS 데이터 없음, fallback 데이터 사용');
+    console.log('🔍 currentGPS:', currentGPS);
+    
+    if (!currentGPS) {
+      const fallbackData = allHeritageData.slice(0, 3);
+      console.log('⚠️ GPS 없음, 기본 fallback 데이터:', fallbackData);
+      return fallbackData;
+    }
 
     const heritageWithDistance = allHeritageData.map(heritage => {
       const distance = calculateDistance(
@@ -834,11 +867,53 @@ function MainPage() {
                   cursor: 'pointer'
                 }}
                 onClick={() => {
-                  // RDS 데이터인 경우 관광지 상세 페이지로 이동
-                  if (heritage.id && heritage.id.toString().length > 5) {
+                  console.log('🔍 관광지 클릭:', heritage.name, 'ID:', heritage.id, 'Type:', typeof heritage.id);
+                  console.log('🔍 Heritage 데이터:', heritage);
+                  
+                  // ID 9 강제 차단
+                  if (heritage.id === 9 || heritage.id === '9') {
+                    console.error('🚨 ID 9 클릭 차단됨! 이 클릭을 무시합니다.');
+                    alert('이 관광지 정보는 현재 이용할 수 없습니다.');
+                    return;
+                  }
+                  
+                  // 화이트리스트 방식: 알려진 RDS content_id들만 tourist-spot으로 이동
+                  const knownRDSIds = [
+                    '126508', '128144', '126537', '126510', '126339', // 경복궁, 조계사, 북촌, 종묘, 금산사 등
+                    '2649975', // 광명동굴
+                  ];
+                  
+                  const idString = heritage.id ? heritage.id.toString() : '';
+                  
+                  // 1. 명시적 RDS 플래그 확인 (최우선)
+                  if (heritage.isRDSData === true) {
+                    console.log('✅ 명시적 RDS 데이터 → 관광지 상세 페이지로 이동');
+                    navigate(`/tourist-spot/${heritage.id}`);
+                    return;
+                  }
+                  
+                  // 2. 화이트리스트에 있는 ID인지 확인
+                  const isInWhitelist = knownRDSIds.includes(idString);
+                  
+                  // 3. 6자리 숫자 패턴인지 확인 (100000~999999)
+                  const is6DigitPattern = /^\d{6}$/.test(idString) && parseInt(idString) >= 100000;
+                  
+                  // 4. 7자리 숫자 패턴인지 확인 (1000000~9999999)
+                  const is7DigitPattern = /^\d{7}$/.test(idString) && parseInt(idString) >= 1000000;
+                  
+                  const isRDSData = isInWhitelist || is6DigitPattern || is7DigitPattern;
+                  
+                  console.log('🔍 ID 문자열:', idString);
+                  console.log('🔍 화이트리스트 매치:', isInWhitelist);
+                  console.log('🔍 6자리 패턴 매치:', is6DigitPattern);
+                  console.log('🔍 7자리 패턴 매치:', is7DigitPattern);
+                  console.log('🔍 최종 RDS 데이터 판단:', isRDSData);
+                  
+                  if (isRDSData) {
+                    console.log('✅ RDS 데이터 → 관광지 상세 페이지로 이동');
                     navigate(`/tourist-spot/${heritage.id}`);
                   } else {
-                    // fallback 데이터인 경우 기존 상세 페이지로 이동
+                    console.log('✅ Fallback 데이터 → 기존 상세 페이지로 이동');
                     navigate(`/detail/${heritage.id}`);
                   }
                 }}
